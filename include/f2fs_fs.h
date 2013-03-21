@@ -171,6 +171,7 @@ struct f2fs_configuration {
 	u_int32_t sectors_per_blk;
 	u_int32_t blks_per_seg;
 	char *vol_label;
+	u_int32_t bytes_reserved;
 	int heap;
 	int32_t fd;
 	char *device_name;
