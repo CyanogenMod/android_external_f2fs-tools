@@ -19,12 +19,53 @@
 #include <sys/mount.h>
 #include <time.h>
 #include <linux/fs.h>
-#include <uuid/uuid.h>
+//#include <uuid/uuid.h>
 
-#include "f2fs_fs.h"
+#include "include/f2fs_fs.h"
+
+#define F2FS_MAJOR_VERSION 1
+#define F2FS_MINOR_VERSION 1
+#define F2FS_TOOLS_VERSION "1.1.0"
+#define F2FS_TOOLS_DATE "2012-11-29"
+#define BLKDISCARD _IO(0x12,119)
 
 extern struct f2fs_configuration config;
 struct f2fs_super_block super_block;
+
+/*
+ This generates a version 4 universally unique identifier (UUID).
+ The format is: xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx
+ where each x is 4 bits populated by /dev/urandom.
+ The algorithm is derived from Theodore T'so's original e2fsprogs source.
+
+ 16 bytes will be written to the passed pointer, so allocate
+ at least that much space before calling uuid_generate.
+*/
+#define RANDOM "/dev/urandom"
+void uuid_generate(unsigned char *uuid)
+{
+	int fd;
+
+	fd = open(RANDOM, O_RDONLY);
+	if(-1 == fd)
+	{
+		perror("Error while opening " RANDOM);
+		return;
+	}
+
+	if(16 != read(fd, uuid, 16))
+	{
+		perror("Error while reading from " RANDOM);
+	}
+
+	uuid[6] &= 0x0F;
+	uuid[6] |= 0x40;
+
+	uuid[8] &= 0x3F;
+	uuid[8] |= 0x80;
+
+	close(fd);
+}
 
 static void mkfs_usage()
 {
@@ -989,7 +1030,7 @@ exit:
 	return err;
 }
 
-int main(int argc, char *argv[])
+int make_f2fs_main(int argc, char *argv[])
 {
 	MSG(0, "\n\tF2FS-tools: mkfs.f2fs Ver: %s (%s)\n\n",
 				F2FS_TOOLS_VERSION,
@@ -998,8 +1039,10 @@ int main(int argc, char *argv[])
 
 	f2fs_parse_options(argc, argv);
 
+	/*
 	if (f2fs_dev_is_umounted(&config) < 0)
 		return -1;
+	*/
 
 	if (f2fs_get_device_info(&config) < 0)
 		return -1;

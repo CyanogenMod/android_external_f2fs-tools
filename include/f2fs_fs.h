@@ -144,7 +144,7 @@ typedef unsigned long	pgoff_t;
 	} while (0);
 
 /* these are defined in kernel */
-#define PAGE_SIZE		4096
+// #define PAGE_SIZE		4096
 #define PAGE_CACHE_SIZE		4096
 #define BITS_PER_BYTE		8
 #define F2FS_SUPER_MAGIC	0xF2F52010	/* F2FS Magic Number */

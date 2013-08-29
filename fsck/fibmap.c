@@ -30,18 +30,18 @@ void print_stat(struct stat64 *st)
 {
 	printf("--------------------------------------------\n");
 	printf("dev       [%d:%d]\n", major(st->st_dev), minor(st->st_dev));
-	printf("ino       [0x%8lx : %ld]\n", st->st_ino, st->st_ino);
+	printf("ino       [0x%8llx : %lld]\n", st->st_ino, st->st_ino);
 	printf("mode      [0x%8x : %d]\n", st->st_mode, st->st_mode);
-	printf("nlink     [0x%8lx : %ld]\n", st->st_nlink, st->st_nlink);
-	printf("uid       [0x%8x : %d]\n", st->st_uid, st->st_uid);
-	printf("gid       [0x%8x : %d]\n", st->st_gid, st->st_gid);
-	printf("size      [0x%8lx : %ld]\n", st->st_size, st->st_size);
+	printf("nlink     [0x%8x : %d]\n", st->st_nlink, st->st_nlink);
+	printf("uid       [0x%8lx : %ld]\n", st->st_uid, st->st_uid);
+	printf("gid       [0x%8lx : %ld]\n", st->st_gid, st->st_gid);
+	printf("size      [0x%8llx : %lld]\n", st->st_size, st->st_size);
 	printf("blksize   [0x%8lx : %ld]\n", st->st_blksize, st->st_blksize);
-	printf("blocks    [0x%8lx : %ld]\n", st->st_blocks, st->st_blocks);
+	printf("blocks    [0x%8llx : %lld]\n", st->st_blocks, st->st_blocks);
 	printf("--------------------------------------------\n\n");
 }
 
-int main(int argc, char *argv[])
+int fibmap_main(int argc, char *argv[])
 {
 	int fd;
 	int ret = 0;
