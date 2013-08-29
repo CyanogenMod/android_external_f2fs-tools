@@ -26,7 +26,7 @@ void print_ext(struct file_ext *ext)
 					ext->end_blk, ext->blk_count);
 }
 
-void print_stat(struct stat64 *st)
+void fibmap_print_stat(struct stat64 *st)
 {
 	printf("--------------------------------------------\n");
 	printf("dev       [%d:%d]\n", major(st->st_dev), minor(st->st_dev));
@@ -76,7 +76,7 @@ int fibmap_main(int argc, char *argv[])
 	total_blks = (st.st_size + st.st_blksize - 1) / st.st_blksize;
 
 	printf("\n%s :\n", filename);
-	print_stat(&st);
+	fibmap_print_stat(&st);
 	printf("file_pos   start_blk     end_blk        blks\n");
 
 	blknum = 0;
