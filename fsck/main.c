@@ -174,7 +174,7 @@ cleanup:
 	return 0;
 }
 
-int main (int argc, char **argv)
+int fsck_f2fs_main (int argc, char **argv)
 {
 	struct f2fs_sb_info *sbi = &gfsck.sbi;
 	int ret = 0;
