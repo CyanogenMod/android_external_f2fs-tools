@@ -33,7 +33,11 @@ void print_ext(struct file_ext *ext)
 					ext->end_blk, ext->blk_count);
 }
 
+#ifndef ANDROID
 void print_stat(struct stat64 *st)
+#else
+void fibmap_print_stat(struct stat64 *st)
+#endif
 {
 	printf("--------------------------------------------\n");
 	printf("dev       [%d:%d]\n", major(st->st_dev), minor(st->st_dev));
@@ -130,7 +134,11 @@ int fibmap_main(int argc, char *argv[])
 
 	printf("\n----------------file info-------------------\n");
 	printf("%s :\n", filename);
+#ifndef ANDROID
 	print_stat(&st);
+#else
+	fibmap_print_stat(&st);
+#endif
 	printf("file_pos   start_blk     end_blk        blks\n");
 
 	blknum = 0;
