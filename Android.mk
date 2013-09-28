@@ -10,7 +10,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := mkfs/main.c
 LOCAL_MODULE := mkfs.f2fs
 LOCAL_MODULE_TAGS := optional
-LOCAL_STATIC_LIBRARIES := libmake_f2fs
+LOCAL_FORCE_STATIC_EXECUTABLE := true
+LOCAL_STATIC_LIBRARIES := libmake_f2fs libcutils liblog libc
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
@@ -23,7 +24,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := fsck/fsck_f2fs_main.c
 LOCAL_MODULE := fsck.f2fs
 LOCAL_MODULE_TAGS := optional
-LOCAL_STATIC_LIBRARIES := libfsck_f2fs
+LOCAL_FORCE_STATIC_EXECUTABLE := true
+LOCAL_STATIC_LIBRARIES := libfsck_f2fs libcutils liblog libc
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
@@ -36,5 +38,6 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := fsck/fibmap_main.c
 LOCAL_MODULE := fibmap.f2fs
 LOCAL_MODULE_TAGS := optional
-LOCAL_STATIC_LIBRARIES := libfibmap_f2fs
+LOCAL_FORCE_STATIC_EXECUTABLE := true
+LOCAL_STATIC_LIBRARIES := libfibmap_f2fs libcutils liblog libc
 include $(BUILD_EXECUTABLE)
