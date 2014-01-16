@@ -29,13 +29,13 @@ LOCAL_STATIC_LIBRARIES := libfsck_f2fs libcutils liblog libc
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := fsck/fibmap.c
+LOCAL_SRC_FILES := tools/fibmap.c
 LOCAL_MODULE := libfibmap_f2fs
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := fsck/fibmap_main.c
+LOCAL_SRC_FILES := tools/fibmap_main.c
 LOCAL_MODULE := fibmap.f2fs
 LOCAL_MODULE_TAGS := optional
 LOCAL_FORCE_STATIC_EXECUTABLE := true
