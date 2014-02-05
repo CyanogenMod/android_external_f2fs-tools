@@ -181,7 +181,7 @@ void print_head(void)
 	printf("util  node   data   free  valid  dirty prefree node  dent meta sit   gc    ssr    lfs\n");
 }
 
-int main(int argc, char *argv[])
+int f2fstat_main(int argc, char *argv[])
 {
 	char format[] = "%3ld %6ld %6ld %6ld %6ld %6ld %6ld %5ld %5ld %3ld %3ld %5ld %6ld %6ld\n";
 	int head_interval;
