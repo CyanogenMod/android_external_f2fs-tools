@@ -24,9 +24,9 @@
 #include "include/f2fs_fs.h"
 
 #define F2FS_MAJOR_VERSION 1
-#define F2FS_MINOR_VERSION 1
-#define F2FS_TOOLS_VERSION "1.1.0"
-#define F2FS_TOOLS_DATE "2012-11-29"
+#define F2FS_MINOR_VERSION 2
+#define F2FS_TOOLS_VERSION "1.2.0"
+#define F2FS_TOOLS_DATE "2013-10-25"
 #define BLKDISCARD _IO(0x12,119)
 
 extern struct f2fs_configuration config;
