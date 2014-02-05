@@ -175,13 +175,13 @@ void parse_option(int argc, char *argv[], struct options *opt)
 	}
 }
 
-void print_head(void)
+void f2fstat_print_head(void)
 {
 	printf("---utilization--- -----------main area-------- ---balancing async-- -gc- ---alloc---\n");
 	printf("util  node   data   free  valid  dirty prefree node  dent meta sit   gc    ssr    lfs\n");
 }
 
-int main(int argc, char *argv[])
+int f2fstat_main(int argc, char *argv[])
 {
 	char format[] = "%3ld %6ld %6ld %6ld %6ld %6ld %6ld %5ld %5ld %3ld %3ld %5ld %6ld %6ld\n";
 	int head_interval;
@@ -193,10 +193,10 @@ int main(int argc, char *argv[])
 	parse_option(argc, argv, &opt);
 	head_interval = opt.interval;
 
-	print_head();
+	f2fstat_print_head();
 	while (1) {
 		if (head_interval-- == 0) {
-			print_head();
+			f2fstat_print_head();
 			head_interval = opt.interval;
 		}
 
