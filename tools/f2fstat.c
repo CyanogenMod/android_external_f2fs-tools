@@ -195,8 +195,13 @@ void usage(void)
 
 void parse_option(int argc, char *argv[], struct options *opt)
 {
+#ifndef ANDROID
 	char option;
 	const char *option_string = "d:i:p:h";
+#else
+	int option;
+	const char *option_string = "d:i:p:";
+#endif
 
 	while ((option = getopt(argc, argv, option_string)) != EOF) {
 		switch (option) {
