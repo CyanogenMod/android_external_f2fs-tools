@@ -13,6 +13,10 @@
 #include <linux/types.h>
 #include <linux/fs.h>
 
+#ifdef ANDROID
+#include "include/f2fs_version.h"
+#endif
+
 struct file_ext {
 	__u32 f_pos;
 	__u32 start_blk;
@@ -95,6 +99,9 @@ int fibmap_main(int argc, char *argv[])
 	struct file_ext ext;
 	__u32 start_lba;
 	__u32 blknum;
+
+	printf("\n\tF2FS-tools: fibmap.f2fs Ver: %s (%s)\n\n",
+	    F2FS_TOOLS_VERSION, F2FS_TOOLS_DATE);
 
 	if (argc != 2) {
 		fprintf(stderr, "No filename\n");

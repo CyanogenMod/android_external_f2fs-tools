@@ -5,6 +5,10 @@
 #include <fcntl.h>
 #include <libgen.h>
 
+#ifdef ANDROID
+#include "include/f2fs_version.h"
+#endif
+
 #ifdef DEBUG
 #define dbg(fmt, args...)	printf(fmt, __VA_ARGS__);
 #else
@@ -231,6 +235,9 @@ int f2fstat_main(int argc, char *argv[])
 		.interval = 20,
 		.partname = { 0, },
 	};
+
+	printf("\n\tF2FS-tools: f2fstat Ver: %s (%s)\n\n",
+	    F2FS_TOOLS_VERSION, F2FS_TOOLS_DATE);
 
 	parse_option(argc, argv, &opt);
 	head_interval = opt.interval;

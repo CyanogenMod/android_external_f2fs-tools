@@ -45,6 +45,9 @@ void f2fs_parse_options(int argc, char *argv[])
 	if (!strcmp("fsck.f2fs", prog)) {
 		const char *option_string = "ad:ft";
 
+		MSG(0, "\n\tF2FS-tools: fsck.f2fs Ver: %s (%s)\n\n",
+		    F2FS_TOOLS_VERSION, F2FS_TOOLS_DATE);
+
 		config.func = FSCK;
 		while ((option = getopt(argc, argv, option_string)) != EOF) {
 			switch (option) {
@@ -80,6 +83,9 @@ void f2fs_parse_options(int argc, char *argv[])
 			.end_ssa = -1,
 			.blk_addr = -1,
 		};
+
+		MSG(0, "\n\tF2FS-tools: dump.f2fs Ver: %s (%s)\n\n",
+		    F2FS_TOOLS_VERSION, F2FS_TOOLS_DATE);
 
 		config.func = DUMP;
 		while ((option = getopt(argc, argv, option_string)) != EOF) {
