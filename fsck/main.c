@@ -55,7 +55,6 @@ void f2fs_parse_options(int argc, char *argv[])
 					config.dbg_lv = -1;
 					break;
 				default:
-					MSG(0, "\tError: Unknown option %c\n",option);
 					fsck_usage();
 					break;
 			}
@@ -97,7 +96,6 @@ void f2fs_parse_options(int argc, char *argv[])
 						sscanf(optarg, "%x", &dump_opt.blk_addr);
 					break;
 				default:
-					MSG(0, "\tError: Unknown option %c\n", option);
 					dump_usage();
 					break;
 			}

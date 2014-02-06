@@ -131,7 +131,6 @@ static void f2fs_parse_options(int argc, char *argv[])
 			MSG(0, "Info: Trim is %s\n", config.trim ? "enabled": "disabled");
 			break;
 		default:
-			MSG(0, "\tError: Unknown option %c\n",option);
 			mkfs_usage();
 			break;
 		}
