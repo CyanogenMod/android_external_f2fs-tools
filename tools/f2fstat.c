@@ -159,7 +159,7 @@ nextline:
 	close(fd);
 }
 
-void usage(void)
+void f2fstat_usage(void)
 {
 	printf("Usage: f2fstat [option]\n"
 			"    -d    delay (secs)\n"
@@ -168,25 +168,25 @@ void usage(void)
 	exit(EXIT_FAILURE);
 }
 
-void parse_option(int argc, char *argv[], struct options *opt)
+void f2fs_parse_options(int argc, char *argv[], struct options *opt)
 {
 	char option;
-	const char *option_string = "d:i:p:h";
+	const char *option_string = "d:i:p:";
 
 	while ((option = getopt(argc, argv, option_string)) != EOF) {
 		switch (option) {
-		case 'd':
-			opt->delay = atoi(optarg);
-			break;
-		case 'i':
-			opt->interval = atoi(optarg);
-			break;
-		case 'p':
-			strcpy(opt->partname, basename(optarg));
-			break;
-		default:
-			usage();
-			break;
+			case 'd':
+				opt->delay = atoi(optarg);
+				break;
+			case 'i':
+				opt->interval = atoi(optarg);
+				break;
+			case 'p':
+				strcpy(opt->partname, basename(optarg));
+				break;
+			case '?':
+				f2fstat_usage();
+				break;
 		}
 	}
 }
@@ -197,7 +197,7 @@ void f2fstat_print_head(void)
 	printf("util  node   data   free  valid  dirty prefree node  dent meta sit   gc    ssr    lfs\n");
 }
 
-int f2fstat_main(int argc, char *argv[])
+int f2fstat_main(int argc, char **argv)
 {
 	char format[] = "%3ld %6ld %6ld %6ld %6ld %6ld %6ld %5ld %5ld %3ld %3ld %5ld %6ld %6ld\n";
 	int head_interval;
@@ -207,7 +207,7 @@ int f2fstat_main(int argc, char *argv[])
 		.partname = { 0, },
 	};
 
-	parse_option(argc, argv, &opt);
+	f2fs_parse_options(argc, argv, &opt);
 	head_interval = opt.interval;
 
 	f2fstat_print_head();

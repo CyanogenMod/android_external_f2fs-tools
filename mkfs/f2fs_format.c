@@ -130,8 +130,7 @@ static void f2fs_parse_options(int argc, char *argv[])
 			config.trim = atoi(optarg);
 			MSG(0, "Info: Trim is %s\n", config.trim ? "enabled": "disabled");
 			break;
-		default:
-			MSG(0, "\tError: Unknown option %c\n",option);
+		case '?':
 			mkfs_usage();
 			break;
 		}
@@ -1010,7 +1009,7 @@ exit:
 	return err;
 }
 
-int make_f2fs_main(int argc, char *argv[])
+int mkfs_f2fs_main(int argc, char *argv[])
 {
 	MSG(0, "\n\tF2FS-tools: mkfs.f2fs Ver: %s (%s)\n\n",
 				F2FS_TOOLS_VERSION,
