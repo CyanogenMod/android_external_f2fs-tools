@@ -28,6 +28,18 @@ LOCAL_FORCE_STATIC_EXECUTABLE := true
 LOCAL_STATIC_LIBRARIES := libfsck_f2fs libcutils liblog libc
 include $(BUILD_EXECUTABLE)
 
+SYMLINKS := $(addprefix $(TARGET_OUT)/bin/,dump.f2fs)
+$(SYMLINKS):
+	@echo "Symlink: $@ -> /system/bin/fsck.f2fs"
+	@mkdir -p $(dir $@)
+	@rm -rf $@
+	$(hide) ln -sf ../bin/fsck.f2fs $@
+
+ALL_DEFAULT_INSTALLED_MODULES += $(SYMLINKS)
+
+ALL_MODULES.$(LOCAL_MODULE).INSTALLED := \
+    $(ALL_MODULES.$(LOCAL_MODULE).INSTALLED) $(SYMLINKS)
+
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := tools/fibmap.c
 LOCAL_MODULE := libfibmap_f2fs
