@@ -11,6 +11,7 @@
 #define _LARGEFILE64_SOURCE
 
 #include "include/f2fs_fs.h"
+#include "include/f2fs_version.h"
 
 extern struct f2fs_configuration config;
 
