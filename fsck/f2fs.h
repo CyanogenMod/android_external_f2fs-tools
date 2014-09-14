@@ -26,7 +26,6 @@
 #include <sys/mount.h>
 #include <assert.h>
 
-#include "include/list.h"
 #include "include/f2fs_fs.h"
 #include "include/f2fs_version.h"
 
@@ -34,6 +33,10 @@
 #define ver_after(a, b) (typecheck(unsigned long long, a) &&            \
 		typecheck(unsigned long long, b) &&                     \
 		((long long)((a) - (b)) > 0))
+
+struct list_head {
+	struct list_head *next, *prev;
+};
 
 enum {
 	NAT_BITMAP,
@@ -127,6 +130,7 @@ struct f2fs_sb_info {
 	struct f2fs_nm_info *nm_info;
 	struct f2fs_sm_info *sm_info;
 	struct f2fs_checkpoint *ckpt;
+	int cur_cp;
 
 	struct list_head orphan_inode_list;
 	unsigned int n_orphans;
@@ -204,9 +208,17 @@ static inline unsigned long __bitmap_size(struct f2fs_sb_info *sbi, int flag)
 static inline void *__bitmap_ptr(struct f2fs_sb_info *sbi, int flag)
 {
 	struct f2fs_checkpoint *ckpt = F2FS_CKPT(sbi);
-	int offset = (flag == NAT_BITMAP) ?
-		le32_to_cpu(ckpt->sit_ver_bitmap_bytesize) : 0;
-	return &ckpt->sit_nat_version_bitmap + offset;
+	int offset;
+	if (le32_to_cpu(F2FS_RAW_SUPER(sbi)->cp_payload) > 0) {
+		if (flag == NAT_BITMAP)
+			return &ckpt->sit_nat_version_bitmap;
+		else
+			return ((char *)ckpt + F2FS_BLKSIZE);
+	} else {
+		offset = (flag == NAT_BITMAP) ?
+			le32_to_cpu(ckpt->sit_ver_bitmap_bytesize) : 0;
+		return &ckpt->sit_nat_version_bitmap + offset;
+	}
 }
 
 static inline bool is_set_ckpt_flags(struct f2fs_checkpoint *cp, unsigned int f)
@@ -258,10 +270,15 @@ static inline block_t __start_sum_addr(struct f2fs_sb_info *sbi)
 #define GET_SEGNO_FROM_SEG0(sbi, blk_addr)				\
 	(GET_SEGOFF_FROM_SEG0(sbi, blk_addr) >> sbi->log_blocks_per_seg)
 
-#define FREE_I_START_SEGNO(sbi)		GET_SEGNO_FROM_SEG0(sbi, SM_I(sbi)->main_blkaddr)
+#define GET_BLKOFF_FROM_SEG0(sbi, blk_addr)				\
+	(GET_SEGOFF_FROM_SEG0(sbi, blk_addr) & (sbi->blocks_per_seg - 1))
+
+#define FREE_I_START_SEGNO(sbi)						\
+	GET_SEGNO_FROM_SEG0(sbi, SM_I(sbi)->main_blkaddr)
 #define GET_R2L_SEGNO(sbi, segno)	(segno + FREE_I_START_SEGNO(sbi))
 
-#define START_BLOCK(sbi, segno)	(SM_I(sbi)->main_blkaddr + (segno << sbi->log_blocks_per_seg))
+#define START_BLOCK(sbi, segno)	(SM_I(sbi)->main_blkaddr +		\
+	(segno << sbi->log_blocks_per_seg))
 
 static inline struct curseg_info *CURSEG_I(struct f2fs_sb_info *sbi, int type)
 {
@@ -294,23 +311,34 @@ static inline block_t sum_blk_addr(struct f2fs_sb_info *sbi, int base, int type)
 	(segno / SIT_ENTRY_PER_BLOCK)
 #define TOTAL_SEGS(sbi) (SM_I(sbi)->main_segments)
 
-#define IS_VALID_NID(sbi, nid) 			\
-	do {						\
-		ASSERT(nid <= (NAT_ENTRY_PER_BLOCK *	\
-					F2FS_RAW_SUPER(sbi)->segment_count_nat	\
-					<< (sbi->log_blocks_per_seg - 1)));	\
-	} while (0);
+static inline bool IS_VALID_NID(struct f2fs_sb_info *sbi, u32 nid)
+{
+	return (nid <= (NAT_ENTRY_PER_BLOCK *
+			F2FS_RAW_SUPER(sbi)->segment_count_nat
+			<< (sbi->log_blocks_per_seg - 1)));
+}
 
-#define IS_VALID_BLK_ADDR(sbi, addr)				\
-	do {							\
-		if (addr >= F2FS_RAW_SUPER(sbi)->block_count ||	 	\
-				addr < SM_I(sbi)->main_blkaddr)	\
-		{						\
-			DBG(0, "block addr [0x%x]\n", addr);	\
-			ASSERT(addr <  F2FS_RAW_SUPER(sbi)->block_count);	\
-			ASSERT(addr >= SM_I(sbi)->main_blkaddr);	\
-		}						\
-	} while (0);
+static inline bool IS_VALID_BLK_ADDR(struct f2fs_sb_info *sbi, u32 addr)
+{
+	int i;
+
+	if (addr >= F2FS_RAW_SUPER(sbi)->block_count ||
+				addr < SM_I(sbi)->main_blkaddr) {
+		DBG(0, "block addr [0x%x]\n", addr);
+		ASSERT(addr <  F2FS_RAW_SUPER(sbi)->block_count);
+		ASSERT(addr >= SM_I(sbi)->main_blkaddr);
+		return 0;
+	}
+
+	for (i = 0; i < NO_CHECK_TYPE; i++) {
+		struct curseg_info *curseg = CURSEG_I(sbi, i);
+
+		if (START_BLOCK(sbi, curseg->segno) +
+					curseg->next_blkoff == addr)
+			return 0;
+	}
+	return 1;
+}
 
 static inline u64 BLKOFF_FROM_MAIN(struct f2fs_sb_info *sbi, u64 blk_addr)
 {

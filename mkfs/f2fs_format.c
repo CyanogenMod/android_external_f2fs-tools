@@ -4,9 +4,7 @@
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
  *             http://www.samsung.com/
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Dual licensed under the GPL or LGPL version 2 licenses.
  */
 #define _LARGEFILE64_SOURCE
 
@@ -19,7 +17,7 @@
 #include <sys/mount.h>
 #include <time.h>
 #include <linux/fs.h>
-//#include <uuid/uuid.h>
+#include <uuid/uuid.h>
 
 #include "include/f2fs_fs.h"
 #include "f2fs_format_utils.h"
@@ -190,7 +188,7 @@ static void configure_extension_list(void)
 		memcpy(super_block.extension_list[i++], *extlist, name_len);
 		extlist++;
 	}
-	super_block.extension_count = i - 1;
+	super_block.extension_count = i;
 
 	if (!ext_str)
 		return;
@@ -201,11 +199,11 @@ static void configure_extension_list(void)
 		name_len = strlen(ue);
 		memcpy(super_block.extension_list[i++], ue, name_len);
 		ue = strtok(NULL, ",");
-		if (i > F2FS_MAX_EXTENSION)
+		if (i >= F2FS_MAX_EXTENSION)
 			break;
 	}
 
-	super_block.extension_count = i - 1;
+	super_block.extension_count = i;
 
 	free(config.extension_list);
 }
@@ -220,7 +218,8 @@ static int f2fs_prepare_super_block(void)
 	u_int32_t blocks_for_sit, blocks_for_nat, blocks_for_ssa;
 	u_int32_t total_valid_blks_available;
 	u_int64_t zone_align_start_offset, diff, total_meta_segments;
-	u_int32_t sit_bitmap_size, max_nat_bitmap_size, max_nat_segments;
+	u_int32_t sit_bitmap_size, max_sit_bitmap_size;
+	u_int32_t max_nat_bitmap_size, max_nat_segments;
 	u_int32_t total_zones;
 
 	super_block.magic = cpu_to_le32(F2FS_SUPER_MAGIC);
@@ -233,29 +232,10 @@ static int f2fs_prepare_super_block(void)
 	log_blks_per_seg = log_base_2(config.blks_per_seg);
 
 	super_block.log_sectorsize = cpu_to_le32(log_sectorsize);
-
-	if (log_sectorsize < 0) {
-		MSG(1, "\tError: Failed to get the sector size: %u!\n",
-				config.sector_size);
-		return -1;
-	}
-
 	super_block.log_sectors_per_block = cpu_to_le32(log_sectors_per_block);
-
-	if (log_sectors_per_block < 0) {
-		MSG(1, "\tError: Failed to get sectors per block: %u!\n",
-				config.sectors_per_blk);
-		return -1;
-	}
 
 	super_block.log_blocksize = cpu_to_le32(log_blocksize);
 	super_block.log_blocks_per_seg = cpu_to_le32(log_blks_per_seg);
-
-	if (log_blks_per_seg < 0) {
-		MSG(1, "\tError: Failed to get block per segment: %u!\n",
-				config.blks_per_seg);
-		return -1;
-	}
 
 	super_block.segs_per_sec = cpu_to_le32(config.segs_per_sec);
 	super_block.secs_per_zone = cpu_to_le32(config.secs_per_zone);
@@ -335,8 +315,26 @@ static int f2fs_prepare_super_block(void)
 	 */
 	sit_bitmap_size = ((le32_to_cpu(super_block.segment_count_sit) / 2) <<
 				log_blks_per_seg) / 8;
-	max_nat_bitmap_size = CHECKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1 -
-			sit_bitmap_size;
+
+	if (sit_bitmap_size > MAX_SIT_BITMAP_SIZE)
+		max_sit_bitmap_size = MAX_SIT_BITMAP_SIZE;
+	else
+		max_sit_bitmap_size = sit_bitmap_size;
+
+	/*
+	 * It should be reserved minimum 1 segment for nat.
+	 * When sit is too large, we should expand cp area. It requires more pages for cp.
+	 */
+	if (max_sit_bitmap_size >
+			(CHECKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 65)) {
+		max_nat_bitmap_size = CHECKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1;
+		super_block.cp_payload = F2FS_BLK_ALIGN(max_sit_bitmap_size);
+	} else {
+		max_nat_bitmap_size = CHECKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1
+			- max_sit_bitmap_size;
+		super_block.cp_payload = 0;
+	}
+
 	max_nat_segments = (max_nat_bitmap_size * 8) >> log_blks_per_seg;
 
 	if (le32_to_cpu(super_block.segment_count_nat) > max_nat_segments)
@@ -492,10 +490,11 @@ static int f2fs_init_sit_area(void)
 	sit_seg_addr = le32_to_cpu(super_block.sit_blkaddr);
 	sit_seg_addr *= blk_size;
 
+	DBG(1, "\tFilling sit area at offset 0x%08"PRIx64"\n", sit_seg_addr);
 	for (index = 0;
 		index < (le32_to_cpu(super_block.segment_count_sit) / 2);
 								index++) {
-		if (dev_write(zero_buf, sit_seg_addr, seg_size)) {
+		if (dev_fill(zero_buf, sit_seg_addr, seg_size)) {
 			MSG(1, "\tError: While zeroing out the sit area \
 					on disk!!!\n");
 			return -1;
@@ -527,10 +526,11 @@ static int f2fs_init_nat_area(void)
 	nat_seg_addr = le32_to_cpu(super_block.nat_blkaddr);
 	nat_seg_addr *= blk_size;
 
+	DBG(1, "\tFilling nat area at offset 0x%08"PRIx64"\n", nat_seg_addr);
 	for (index = 0;
 		index < (le32_to_cpu(super_block.segment_count_nat) / 2);
 								index++) {
-		if (dev_write(nat_buf, nat_seg_addr, seg_size)) {
+		if (dev_fill(nat_buf, nat_seg_addr, seg_size)) {
 			MSG(1, "\tError: While zeroing out the nat area \
 					on disk!!!\n");
 			return -1;
@@ -549,7 +549,8 @@ static int f2fs_write_check_point_pack(void)
 	u_int32_t blk_size_bytes;
 	u_int64_t cp_seg_blk_offset = 0;
 	u_int32_t crc = 0;
-	int i;
+	unsigned int i;
+	char *cp_payload = NULL;
 
 	ckp = calloc(F2FS_BLKSIZE, 1);
 	if (ckp == NULL) {
@@ -560,6 +561,12 @@ static int f2fs_write_check_point_pack(void)
 	sum = calloc(F2FS_BLKSIZE, 1);
 	if (sum == NULL) {
 		MSG(1, "\tError: Calloc Failed for summay_node!!!\n");
+		return -1;
+	}
+
+	cp_payload = calloc(F2FS_BLKSIZE, 1);
+	if (cp_payload == NULL) {
+		MSG(1, "\tError: Calloc Failed for cp_payload!!!\n");
 		return -1;
 	}
 
@@ -601,13 +608,14 @@ static int f2fs_write_check_point_pack(void)
 			((le32_to_cpu(ckp->free_segment_count) + 6 -
 			le32_to_cpu(ckp->overprov_segment_count)) *
 			 config.blks_per_seg));
-	ckp->cp_pack_total_block_count = cpu_to_le32(8);
+	ckp->cp_pack_total_block_count =
+		cpu_to_le32(8 + le32_to_cpu(super_block.cp_payload));
 	ckp->ckpt_flags = cpu_to_le32(CP_UMOUNT_FLAG);
-	ckp->cp_pack_start_sum = cpu_to_le32(1);
+	ckp->cp_pack_start_sum = cpu_to_le32(1 + le32_to_cpu(super_block.cp_payload));
 	ckp->valid_node_count = cpu_to_le32(1);
 	ckp->valid_inode_count = cpu_to_le32(1);
-	ckp->next_free_nid = cpu_to_le32(0xc00000);
-
+	ckp->next_free_nid = cpu_to_le32(
+			le32_to_cpu(super_block.root_ino) + 1);
 	ckp->sit_ver_bitmap_bytesize = cpu_to_le32(
 			((le32_to_cpu(super_block.segment_count_sit) / 2) <<
 			 le32_to_cpu(super_block.log_blocks_per_seg)) / 8);
@@ -626,9 +634,19 @@ static int f2fs_write_check_point_pack(void)
 	cp_seg_blk_offset = le32_to_cpu(super_block.segment0_blkaddr);
 	cp_seg_blk_offset *= blk_size_bytes;
 
-	if (dev_write(ckp, cp_seg_blk_offset, F2FS_BLKSIZE)) {
+	DBG(1, "\tWriting main segments, ckp at offset 0x%08"PRIx64"\n", cp_seg_blk_offset);
+	if (dev_write(ckp, cp_seg_blk_offset, blk_size_bytes)) {
 		MSG(1, "\tError: While writing the ckp to disk!!!\n");
 		return -1;
+	}
+
+	for (i = 0; i < le32_to_cpu(super_block.cp_payload); i++) {
+		cp_seg_blk_offset += blk_size_bytes;
+		if (dev_fill(cp_payload, cp_seg_blk_offset, blk_size_bytes)) {
+			MSG(1, "\tError: While zeroing out the sit bitmap area \
+					on disk!!!\n");
+			return -1;
+		}
 	}
 
 	/* 2. Prepare and write Segment summary for data blocks */
@@ -639,7 +657,8 @@ static int f2fs_write_check_point_pack(void)
 	sum->entries[0].ofs_in_node = 0;
 
 	cp_seg_blk_offset += blk_size_bytes;
-	if (dev_write(sum, cp_seg_blk_offset, F2FS_BLKSIZE)) {
+	DBG(1, "\tWriting segment summary for data, ckp at offset 0x%08"PRIx64"\n", cp_seg_blk_offset);
+	if (dev_write(sum, cp_seg_blk_offset, blk_size_bytes)) {
 		MSG(1, "\tError: While writing the sum_blk to disk!!!\n");
 		return -1;
 	}
@@ -649,7 +668,8 @@ static int f2fs_write_check_point_pack(void)
 	SET_SUM_TYPE((&sum->footer), SUM_TYPE_DATA);
 
 	cp_seg_blk_offset += blk_size_bytes;
-	if (dev_write(sum, cp_seg_blk_offset, F2FS_BLKSIZE)) {
+	DBG(1, "\tWriting segment summary, ckp at offset 0x%08"PRIx64"\n", cp_seg_blk_offset);
+	if (dev_write(sum, cp_seg_blk_offset, blk_size_bytes)) {
 		MSG(1, "\tError: While writing the sum_blk to disk!!!\n");
 		return -1;
 	}
@@ -678,7 +698,8 @@ static int f2fs_write_check_point_pack(void)
 	sum->sit_j.entries[5].se.vblocks = cpu_to_le16((CURSEG_COLD_DATA << 10));
 
 	cp_seg_blk_offset += blk_size_bytes;
-	if (dev_write(sum, cp_seg_blk_offset, F2FS_BLKSIZE)) {
+	DBG(1, "\tWriting data sit for root, at offset 0x%08"PRIx64"\n", cp_seg_blk_offset);
+	if (dev_write(sum, cp_seg_blk_offset, blk_size_bytes)) {
 		MSG(1, "\tError: While writing the sum_blk to disk!!!\n");
 		return -1;
 	}
@@ -691,7 +712,8 @@ static int f2fs_write_check_point_pack(void)
 	sum->entries[0].ofs_in_node = 0;
 
 	cp_seg_blk_offset += blk_size_bytes;
-	if (dev_write(sum, cp_seg_blk_offset, F2FS_BLKSIZE)) {
+	DBG(1, "\tWriting Segment summary for node blocks, at offset 0x%08"PRIx64"\n", cp_seg_blk_offset);
+	if (dev_write(sum, cp_seg_blk_offset, blk_size_bytes)) {
 		MSG(1, "\tError: While writing the sum_blk to disk!!!\n");
 		return -1;
 	}
@@ -701,7 +723,8 @@ static int f2fs_write_check_point_pack(void)
 	SET_SUM_TYPE((&sum->footer), SUM_TYPE_NODE);
 
 	cp_seg_blk_offset += blk_size_bytes;
-	if (dev_write(sum, cp_seg_blk_offset, F2FS_BLKSIZE)) {
+	DBG(1, "\tWriting Segment summary for data block (1/2), at offset 0x%08"PRIx64"\n", cp_seg_blk_offset);
+	if (dev_write(sum, cp_seg_blk_offset, blk_size_bytes)) {
 		MSG(1, "\tError: While writing the sum_blk to disk!!!\n");
 		return -1;
 	}
@@ -710,14 +733,16 @@ static int f2fs_write_check_point_pack(void)
 	memset(sum, 0, sizeof(struct f2fs_summary_block));
 	SET_SUM_TYPE((&sum->footer), SUM_TYPE_NODE);
 	cp_seg_blk_offset += blk_size_bytes;
-	if (dev_write(sum, cp_seg_blk_offset, F2FS_BLKSIZE)) {
+	DBG(1, "\tWriting Segment summary for data block (2/2), at offset 0x%08"PRIx64"\n", cp_seg_blk_offset);
+	if (dev_write(sum, cp_seg_blk_offset, blk_size_bytes)) {
 		MSG(1, "\tError: While writing the sum_blk to disk!!!\n");
 		return -1;
 	}
 
 	/* 8. cp page2 */
 	cp_seg_blk_offset += blk_size_bytes;
-	if (dev_write(ckp, cp_seg_blk_offset, F2FS_BLKSIZE)) {
+	DBG(1, "\tWriting cp page2, at offset 0x%08"PRIx64"\n", cp_seg_blk_offset);
+	if (dev_write(ckp, cp_seg_blk_offset, blk_size_bytes)) {
 		MSG(1, "\tError: While writing the ckp to disk!!!\n");
 		return -1;
 	}
@@ -733,20 +758,33 @@ static int f2fs_write_check_point_pack(void)
 	cp_seg_blk_offset = (le32_to_cpu(super_block.segment0_blkaddr) +
 				config.blks_per_seg) *
 				blk_size_bytes;
-	if (dev_write(ckp, cp_seg_blk_offset, F2FS_BLKSIZE)) {
+	DBG(1, "\tWriting cp page 1 of checkpoint pack 2, at offset 0x%08"PRIx64"\n", cp_seg_blk_offset);
+	if (dev_write(ckp, cp_seg_blk_offset, blk_size_bytes)) {
 		MSG(1, "\tError: While writing the ckp to disk!!!\n");
 		return -1;
 	}
 
+	for (i = 0; i < le32_to_cpu(super_block.cp_payload); i++) {
+		cp_seg_blk_offset += blk_size_bytes;
+		if (dev_fill(cp_payload, cp_seg_blk_offset, blk_size_bytes)) {
+			MSG(1, "\tError: While zeroing out the sit bitmap area \
+					on disk!!!\n");
+			return -1;
+		}
+	}
+
 	/* 10. cp page 2 of check point pack 2 */
-	cp_seg_blk_offset += blk_size_bytes * (le32_to_cpu(ckp->cp_pack_total_block_count) - 1);
-	if (dev_write(ckp, cp_seg_blk_offset, F2FS_BLKSIZE)) {
+	cp_seg_blk_offset += blk_size_bytes * (le32_to_cpu(ckp->cp_pack_total_block_count)
+			- le32_to_cpu(super_block.cp_payload) - 1);
+	DBG(1, "\tWriting cp page 2 of checkpoint pack 2, at offset 0x%08"PRIx64"\n", cp_seg_blk_offset);
+	if (dev_write(ckp, cp_seg_blk_offset, blk_size_bytes)) {
 		MSG(1, "\tError: While writing the ckp to disk!!!\n");
 		return -1;
 	}
 
 	free(sum) ;
 	free(ckp) ;
+	free(cp_payload);
 	return	0;
 }
 
@@ -759,6 +797,7 @@ static int f2fs_write_super_block(void)
 
 	memcpy(zero_buff + F2FS_SUPER_OFFSET, &super_block,
 						sizeof(super_block));
+	DBG(1, "\tWriting super block, at offset 0x%08x\n", 0);
 	for (index = 0; index < 2; index++) {
 		if (dev_write(zero_buff, index * F2FS_BLKSIZE, F2FS_BLKSIZE)) {
 			MSG(1, "\tError: While while writing supe_blk \
@@ -810,6 +849,7 @@ static int f2fs_write_root_inode(void)
 	raw_node->i.i_xattr_nid = 0;
 	raw_node->i.i_flags = 0;
 	raw_node->i.i_current_depth = cpu_to_le32(1);
+	raw_node->i.i_dir_level = DEF_DIR_LEVEL;
 
 	data_blk_nor = le32_to_cpu(super_block.main_blkaddr) +
 		config.cur_seg[CURSEG_HOT_DATA] * config.blks_per_seg;
@@ -824,6 +864,7 @@ static int f2fs_write_root_inode(void)
 					config.blks_per_seg;
         main_area_node_seg_blk_offset *= blk_size_bytes;
 
+	DBG(1, "\tWriting root inode (hot node), at offset 0x%08"PRIx64"\n", main_area_node_seg_blk_offset);
 	if (dev_write(raw_node, main_area_node_seg_blk_offset, F2FS_BLKSIZE)) {
 		MSG(1, "\tError: While writing the raw_node to disk!!!\n");
 		return -1;
@@ -837,6 +878,7 @@ static int f2fs_write_root_inode(void)
 					config.blks_per_seg;
         main_area_node_seg_blk_offset *= blk_size_bytes;
 
+	DBG(1, "\tWriting root inode (warm node), at offset 0x%08"PRIx64"\n", main_area_node_seg_blk_offset);
 	if (dev_write(raw_node, main_area_node_seg_blk_offset, F2FS_BLKSIZE)) {
 		MSG(1, "\tError: While writing the raw_node to disk!!!\n");
 		return -1;
@@ -874,6 +916,7 @@ static int f2fs_update_nat_root(void)
 	nat_seg_blk_offset = le32_to_cpu(super_block.nat_blkaddr);
 	nat_seg_blk_offset *= blk_size_bytes;
 
+	DBG(1, "\tWriting nat root, at offset 0x%08"PRIx64"\n", nat_seg_blk_offset);
 	if (dev_write(nat_blk, nat_seg_blk_offset, F2FS_BLKSIZE)) {
 		MSG(1, "\tError: While writing the nat_blk set0 to disk!\n");
 		return -1;
@@ -914,6 +957,7 @@ static int f2fs_add_default_dentry_root(void)
 				config.blks_per_seg;
 	data_blk_offset *= blk_size_bytes;
 
+	DBG(1, "\tWriting default dentry root, at offset 0x%08"PRIx64"\n", data_blk_offset);
 	if (dev_write(dent_blk, data_blk_offset, F2FS_BLKSIZE)) {
 		MSG(1, "\tError: While writing the dentry_blk to disk!!!\n");
 		return -1;
@@ -951,7 +995,7 @@ exit:
 	return err;
 }
 
-static int f2fs_format_device(void)
+int f2fs_format_device(void)
 {
 	int err = 0;
 
@@ -999,8 +1043,6 @@ static int f2fs_format_device(void)
 exit:
 	if (err)
 		MSG(0, "\tError: Could not format the device!!!\n");
-
-	f2fs_finalize_device();
 
 	return err;
 }

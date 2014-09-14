@@ -4,9 +4,7 @@
  * Copyright (c) 2013 Samsung Electronics Co., Ltd.
  *             http://www.samsung.com/
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Dual licensed under the GPL or LGPL version 2 licenses.
  */
 #define _LARGEFILE64_SOURCE
 
@@ -22,11 +20,8 @@
 #include <sys/mount.h>
 #include <sys/ioctl.h>
 #include <linux/hdreg.h>
-#include <linux/fs.h>
 
 #include "include/f2fs_fs.h"
-
-struct f2fs_configuration config;
 
 void ASCIIToUNICODE(u_int16_t *out_buf, u_int8_t *in_buf)
 {
@@ -240,7 +235,8 @@ static void TEA_transform(unsigned int buf[4], unsigned int const in[])
 
 }
 
-static void str2hashbuf(const char *msg, int len, unsigned int *buf, int num)
+static void str2hashbuf(const unsigned char *msg, int len,
+					unsigned int *buf, int num)
 {
 	unsigned pad, val;
 	int i;
@@ -274,24 +270,17 @@ static void str2hashbuf(const char *msg, int len, unsigned int *buf, int num)
  * @param len           name lenth
  * @return              return on success hash value, errno on failure
  */
-f2fs_hash_t f2fs_dentry_hash(const char *name, int len)
+f2fs_hash_t f2fs_dentry_hash(const unsigned char *name, int len)
 {
 	__u32 hash;
 	f2fs_hash_t	f2fs_hash;
-	const char	*p;
+	const unsigned char	*p;
 	__u32 in[8], buf[4];
 
 	/* special hash codes for special dentries */
-	if (name[0] == '.') {
-		if (name[1] == '\0') {
-			f2fs_hash = F2FS_DOT_HASH;
-			goto exit;
-		}
-		if (name[1] == '.' && name[2] == '\0') {
-			f2fs_hash = F2FS_DDOT_HASH;
-			goto exit;
-		}
-	}
+	if ((len <= 2) && (name[0] == '.') &&
+		(name[1] == '.' || name[1] == '\0'))
+		return 0;
 
 	/* Initialize the default seed for the hash checksum functions */
 	buf[0] = 0x67452301;
@@ -300,18 +289,17 @@ f2fs_hash_t f2fs_dentry_hash(const char *name, int len)
 	buf[3] = 0x10325476;
 
 	p = name;
-	while (len > 0) {
+	while (1) {
 		str2hashbuf(p, len, in, 4);
 		TEA_transform(buf, in);
-		len -= 16;
 		p += 16;
+		if (len <= 16)
+			break;
+		len -= 16;
 	}
 	hash = buf[0];
 
-	f2fs_hash = hash;
-exit:
-	f2fs_hash &= ~F2FS_HASH_COL_BIT;
-
+	f2fs_hash = cpu_to_le32(hash & ~F2FS_HASH_COL_BIT);
 	return f2fs_hash;
 }
 
@@ -346,8 +334,8 @@ int f2fs_crc_valid(u_int32_t blk_crc, void *buf, int len)
 	cal_crc = f2fs_cal_crc32(F2FS_SUPER_MAGIC, buf, len);
 
 	if (cal_crc != blk_crc)	{
-		DBG(0,"CRC validation failed: cal_crc = %u \
-			blk_crc = %u buff_size = 0x%x",
+		DBG(0,"CRC validation failed: cal_crc = %u, "
+			"blk_crc = %u buff_size = 0x%x\n",
 			cal_crc, blk_crc, len);
 		return -1;
 	}
@@ -359,6 +347,7 @@ int f2fs_crc_valid(u_int32_t blk_crc, void *buf, int len)
  */
 void f2fs_init_configuration(struct f2fs_configuration *c)
 {
+	c->total_sectors = 0;
 	c->sector_size = DEFAULT_SECTOR_SIZE;
 	c->sectors_per_blk = DEFAULT_SECTORS_PER_BLOCK;
 	c->blks_per_seg = DEFAULT_BLOCKS_PER_SEGMENT;
@@ -434,9 +423,10 @@ int f2fs_dev_is_umounted(struct f2fs_configuration *c)
 int f2fs_get_device_info(struct f2fs_configuration *c)
 {
 	int32_t fd = 0;
-	int32_t sector_size;
+	uint32_t sector_size;
 	struct stat stat_buf;
 	struct hd_geometry geom;
+	u_int64_t wanted_total_sectors = c->total_sectors;
 
 	fd = open(c->device_name, O_RDWR);
 	if (fd < 0) {
@@ -479,7 +469,12 @@ int f2fs_get_device_info(struct f2fs_configuration *c)
 		MSG(0, "\tError: Volume type is not supported!!!\n");
 		return -1;
 	}
+	if (wanted_total_sectors && wanted_total_sectors < c->total_sectors) {
+		MSG(0, "Info: total device sectors = %"PRIu64" (in 512bytes)\n",
+					c->total_sectors);
+		c->total_sectors = wanted_total_sectors;
 
+	}
 	MSG(0, "Info: sector size = %u\n", c->sector_size);
 	MSG(0, "Info: total sectors = %"PRIu64" (in 512bytes)\n",
 					c->total_sectors);
@@ -493,33 +488,3 @@ int f2fs_get_device_info(struct f2fs_configuration *c)
 	return 0;
 }
 
-/*
- * IO interfaces
- */
-int dev_read(void *buf, __u64 offset, size_t len)
-{
-	if (lseek64(config.fd, (off64_t)offset, SEEK_SET) < 0)
-		return -1;
-	if (read(config.fd, buf, len) < 0)
-		return -1;
-	return 0;
-}
-
-int dev_write(void *buf, __u64 offset, size_t len)
-{
-	if (lseek64(config.fd, (off64_t)offset, SEEK_SET) < 0)
-		return -1;
-	if (write(config.fd, buf, len) < 0)
-		return -1;
-	return 0;
-}
-
-int dev_read_block(void *buf, __u64 blk_addr)
-{
-	return dev_read(buf, blk_addr * F2FS_BLKSIZE, F2FS_BLKSIZE);
-}
-
-int dev_read_blocks(void *buf, __u64 addr, __u32 nr_blks)
-{
-	return dev_read(buf, addr * F2FS_BLKSIZE, nr_blks * F2FS_BLKSIZE);
-}
