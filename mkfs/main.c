@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-extern int make_f2fs_main(int argc, char **argv);
+extern int f2fs_format_device(int argc, char **argv);
 
 int main(int argc, char **argv) {
-    return make_f2fs_main(argc, argv);
+    return f2fs_format_device(argc, argv);
 }
