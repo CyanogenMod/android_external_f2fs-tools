@@ -4,9 +4,7 @@
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
  *             http://www.samsung.com/
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Dual licensed under the GPL or LGPL version 2 licenses.
  */
 #ifndef __F2FS_FS_H__
 #define __F2FS_FS_H__
@@ -14,11 +12,13 @@
 #include <inttypes.h>
 #include <linux/types.h>
 #include <sys/types.h>
-#include <endian.h>
-#include <byteswap.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
+#else
+#ifdef ANDROID
+#include "include/f2fs_version.h"
+#endif
 #endif
 
 typedef u_int64_t	u64;
@@ -58,37 +58,39 @@ typedef unsigned long	pgoff_t;
 /*
  * Debugging interfaces
  */
-#define ASSERT_MSG(exp, fmt, ...)					\
+#define FIX_MSG(fmt, ...)						\
 	do {								\
-		if (!(exp)) {						\
-			printf("\nAssertion failed!\n");		\
-			printf("[%s:%4d] " #exp, __func__, __LINE__);	\
-			printf("\n --> "fmt, ##__VA_ARGS__);		\
-			exit(-1);					\
-		}							\
-	} while (0);
+		printf("[FIX] (%s:%4d) ", __func__, __LINE__);		\
+		printf(" --> "fmt"\n", ##__VA_ARGS__);			\
+	} while (0)
+
+#define ASSERT_MSG(fmt, ...)						\
+	do {								\
+		printf("[ASSERT] (%s:%4d) ", __func__, __LINE__);	\
+		printf(" --> "fmt"\n", ##__VA_ARGS__);			\
+		config.bug_on = 1;					\
+	} while (0)
 
 #define ASSERT(exp)							\
 	do {								\
 		if (!(exp)) {						\
-			printf("\nAssertion failed!\n");		\
-			printf("[%s:%4d] " #exp"\n", __func__, __LINE__);\
+			printf("[ASSERT] (%s:%4d) " #exp"\n",		\
+					__func__, __LINE__);		\
 			exit(-1);					\
 		}							\
-	} while (0);
+	} while (0)
 
 #define ERR_MSG(fmt, ...)						\
 	do {								\
-		printf("[%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__);	\
-	} while (0);
-
+		printf("[%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__); \
+	} while (0)
 
 #define MSG(n, fmt, ...)						\
 	do {								\
 		if (config.dbg_lv >= n) {				\
 			printf(fmt, ##__VA_ARGS__);			\
 		}							\
-	} while (0);
+	} while (0)
 
 #define DBG(n, fmt, ...)						\
 	do {								\
@@ -96,55 +98,57 @@ typedef unsigned long	pgoff_t;
 			printf("[%s:%4d] " fmt,				\
 				__func__, __LINE__, ##__VA_ARGS__);	\
 		}							\
-	} while (0);
+	} while (0)
 
 /* Display on console */
 #define DISP(fmt, ptr, member)				\
 	do {						\
 		printf("%-30s" fmt, #member, ((ptr)->member));	\
-	} while (0);
+	} while (0)
 
 #define DISP_u32(ptr, member)						\
 	do {								\
 		assert(sizeof((ptr)->member) <= 4);			\
 		printf("%-30s" "\t\t[0x%8x : %u]\n",		\
-			#member, ((ptr)->member), ((ptr)->member) );	\
-	} while (0);
+			#member, ((ptr)->member), ((ptr)->member));	\
+	} while (0)
 
 #define DISP_u64(ptr, member)						\
 	do {								\
 		assert(sizeof((ptr)->member) == 8);			\
 		printf("%-30s" "\t\t[0x%8llx : %llu]\n",		\
-			#member, ((ptr)->member), ((ptr)->member) );	\
-	} while (0);
+			#member, ((ptr)->member), ((ptr)->member));	\
+	} while (0)
 
 #define DISP_utf(ptr, member)						\
 	do {								\
-		printf("%-30s" "\t\t[%s]\n", #member, ((ptr)->member) );	\
-	} while (0);
+		printf("%-30s" "\t\t[%s]\n", #member, ((ptr)->member)); \
+	} while (0)
 
 /* Display to buffer */
-#define BUF_DISP_u32(buf, data, len, ptr, member)					\
-	do {										\
-		assert(sizeof((ptr)->member) <= 4);					\
-		snprintf(buf, len, #member);						\
-		snprintf(data, len, "0x%x : %u", ((ptr)->member), ((ptr)->member));	\
-	} while (0);
+#define BUF_DISP_u32(buf, data, len, ptr, member)			\
+	do {								\
+		assert(sizeof((ptr)->member) <= 4);			\
+		snprintf(buf, len, #member);				\
+		snprintf(data, len, "0x%x : %u", ((ptr)->member),	\
+						((ptr)->member));	\
+	} while (0)
 
-#define BUF_DISP_u64(buf, data, len, ptr, member)					\
-	do {										\
-		assert(sizeof((ptr)->member) == 8);					\
-		snprintf(buf, len, #member);						\
-		snprintf(data, len, "0x%llx : %llu", ((ptr)->member), ((ptr)->member));	\
-	} while (0);
+#define BUF_DISP_u64(buf, data, len, ptr, member)			\
+	do {								\
+		assert(sizeof((ptr)->member) == 8);			\
+		snprintf(buf, len, #member);				\
+		snprintf(data, len, "0x%llx : %llu", ((ptr)->member),	\
+						((ptr)->member));	\
+	} while (0)
 
-#define BUF_DISP_utf(buf, data, len, ptr, member)				\
-	do {									\
-		snprintf(buf, len, #member);					\
-	} while (0);
+#define BUF_DISP_utf(buf, data, len, ptr, member)			\
+		snprintf(buf, len, #member)
 
 /* these are defined in kernel */
-// #define PAGE_SIZE		4096
+#ifndef PAGE_SIZE
+#define PAGE_SIZE		4096
+#endif
 #define PAGE_CACHE_SIZE		4096
 #define BITS_PER_BYTE		8
 #define F2FS_SUPER_MAGIC	0xF2F52010	/* F2FS Magic Number */
@@ -177,12 +181,16 @@ struct f2fs_configuration {
 	char *vol_label;
 	int heap;
 	int32_t fd;
+	int32_t dump_fd;
 	char *device_name;
 	char *extension_list;
 	int dbg_lv;
 	int trim;
 	int func;
 	void *private;
+	int fix_on;
+	int bug_on;
+	int auto_fix;
 } __attribute__((packed));
 
 #ifdef CONFIG_64BIT
@@ -225,6 +233,7 @@ enum {
 #define F2FS_LOG_SECTORS_PER_BLOCK	3	/* 4KB: F2FS_BLKSIZE */
 #define F2FS_BLKSIZE			4096	/* support only 4KB block */
 #define F2FS_MAX_EXTENSION		64	/* # of extension entries */
+#define F2FS_BLK_ALIGN(x)	(((x) + F2FS_BLKSIZE - 1) / F2FS_BLKSIZE)
 
 #define NULL_ADDR		0x0U
 #define NEW_ADDR		-1U
@@ -281,11 +290,13 @@ struct f2fs_super_block {
 	__le16 volume_name[512];	/* volume name */
 	__le32 extension_count;		/* # of extensions below */
 	__u8 extension_list[F2FS_MAX_EXTENSION][8];	/* extension array */
+	__le32 cp_payload;
 } __attribute__((packed));
 
 /*
  * For checkpoint
  */
+#define CP_FSCK_FLAG		0x00000010
 #define CP_ERROR_FLAG		0x00000008
 #define CP_COMPACT_SUM_FLAG	0x00000004
 #define CP_ORPHAN_PRESENT_FLAG	0x00000002
@@ -366,6 +377,8 @@ struct f2fs_extent {
 #define INLINE_DATA_OFFSET	(PAGE_CACHE_SIZE - sizeof(struct node_footer) \
 				- sizeof(__le32)*(DEF_ADDRS_PER_INODE + 5 - 1))
 
+#define DEF_DIR_LEVEL		0
+
 struct f2fs_inode {
 	__le16 i_mode;			/* file mode */
 	__u8 i_advise;			/* file hints */
@@ -388,7 +401,7 @@ struct f2fs_inode {
 	__le32 i_pino;			/* parent inode number */
 	__le32 i_namelen;		/* file name length */
 	__u8 i_name[F2FS_NAME_LEN];	/* file name for SPOR */
-	__u8 i_reserved2;		/* for backward compatibility */
+	__u8 i_dir_level;		/* dentry_level for large dir */
 
 	struct f2fs_extent i_ext;	/* caching a largest extent */
 
@@ -412,6 +425,9 @@ enum {
 	DENT_BIT_SHIFT,
 	OFFSET_BIT_SHIFT
 };
+
+#define XATTR_NODE_OFFSET	((((unsigned int)-1) << OFFSET_BIT_SHIFT) \
+				>> OFFSET_BIT_SHIFT)
 
 struct node_footer {
 	__le32 nid;		/* node id */
@@ -455,6 +471,13 @@ struct f2fs_nat_block {
  */
 #define SIT_VBLOCK_MAP_SIZE 64
 #define SIT_ENTRY_PER_BLOCK (PAGE_CACHE_SIZE / sizeof(struct f2fs_sit_entry))
+
+/*
+ * F2FS uses 4 bytes to represent block address. As a result, supported size of
+ * disk is 16 TB and it equals to 16 * 1024 * 1024 / 2 segments.
+ */
+#define F2FS_MAX_SEGMENT       ((16 * 1024 * 1024) / 2)
+#define MAX_SIT_BITMAP_SIZE    ((F2FS_MAX_SEGMENT / SIT_ENTRY_PER_BLOCK) / 8)
 
 /*
  * Note that f2fs_sit_entry->vblocks has the following bit-field information.
@@ -633,6 +656,7 @@ enum FILE_TYPE {
 	F2FS_FT_MAX,
 	/* added for fsck */
 	F2FS_FT_ORPHAN,
+	F2FS_FT_XATTR,
 };
 
 /* from f2fs/segment.h */
@@ -652,22 +676,30 @@ extern int test_bit(unsigned int nr, const void * addr);
 extern int f2fs_test_bit(unsigned int, const char *);
 extern int f2fs_set_bit(unsigned int, char *);
 extern int f2fs_clear_bit(unsigned int, char *);
-extern unsigned long find_next_bit(const unsigned long *, unsigned long, unsigned long);
+extern unsigned long find_next_bit(const unsigned long *,
+				unsigned long, unsigned long);
 
 extern u_int32_t f2fs_cal_crc32(u_int32_t, void *, int);
 extern int f2fs_crc_valid(u_int32_t blk_crc, void *buf, int len);
 
 extern void f2fs_init_configuration(struct f2fs_configuration *);
+#ifndef ANDROID
 extern int f2fs_dev_is_umounted(struct f2fs_configuration *);
+#endif
 extern int f2fs_get_device_info(struct f2fs_configuration *);
+extern void f2fs_finalize_device(struct f2fs_configuration *);
 
 extern int dev_read(void *, __u64, size_t);
 extern int dev_write(void *, __u64, size_t);
+extern int dev_write_block(void *, __u64);
+extern int dev_write_dump(void *, __u64, size_t);
+/* All bytes in the buffer must be 0 use dev_fill(). */
+extern int dev_fill(void *, __u64, size_t);
 
 extern int dev_read_block(void *, __u64);
 extern int dev_read_blocks(void *, __u64, __u32 );
 
-f2fs_hash_t f2fs_dentry_hash(const char *, int);
+f2fs_hash_t f2fs_dentry_hash(const unsigned char *, int);
 
 extern struct f2fs_configuration config;
 
