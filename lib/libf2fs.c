@@ -21,7 +21,11 @@
 #include <sys/ioctl.h>
 #include <linux/hdreg.h>
 
+#ifndef ANDROID
 #include <f2fs_fs.h>
+#else
+#include "include/f2fs_fs.h"
+#endif
 
 void ASCIIToUNICODE(u_int16_t *out_buf, u_int8_t *in_buf)
 {
@@ -363,6 +367,7 @@ void f2fs_init_configuration(struct f2fs_configuration *c)
 	c->trim = 1;
 }
 
+#ifndef ANDROID
 static int is_mounted(const char *mpt, const char *device)
 {
 	FILE *file = NULL;
@@ -417,6 +422,7 @@ int f2fs_dev_is_umounted(struct f2fs_configuration *c)
 	}
 	return 0;
 }
+#endif
 
 int f2fs_get_device_info(struct f2fs_configuration *c)
 {

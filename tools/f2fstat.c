@@ -218,7 +218,11 @@ void print_head(void)
 	fprintf(stderr, "util  node   data   free  valid  dirty prefree node  dent meta  sit   nat fnid  cp   gc    ssr    lfs  total  node  meta\n");
 }
 
+#ifndef ANDROID
 int main(int argc, char *argv[])
+#else
+int f2fstat_main(int argc, char *argv[])
+#endif
 {
 	char format[] = "%3ld %6ld %6ld %6ld %6ld %6ld %6ld %5ld %5ld %3ld %5ld %5ld %3ld %3ld %3ld %6ld %6ld %6ld %6ld %6ld\n";
 	int head_interval;

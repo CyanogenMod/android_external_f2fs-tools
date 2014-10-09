@@ -26,7 +26,11 @@
 #include <sys/mount.h>
 #include <assert.h>
 
+#ifndef ANDROID
 #include <f2fs_fs.h>
+#else
+#include "include/f2fs_fs.h"
+#endif
 
 #define EXIT_ERR_CODE		(-1)
 #define ver_after(a, b) (typecheck(unsigned long long, a) &&            \

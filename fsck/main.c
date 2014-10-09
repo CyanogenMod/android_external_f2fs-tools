@@ -177,7 +177,11 @@ cleanup:
 	fsck_free(sbi);
 }
 
+#ifndef ANDROID
 int main(int argc, char **argv)
+#else
+int fsck_f2fs_main(int argc, char **argv)
+#endif
 {
 	struct f2fs_sb_info *sbi;
 	int ret = 0;
@@ -186,8 +190,10 @@ int main(int argc, char **argv)
 
 	f2fs_parse_options(argc, argv);
 
+#ifndef ANDROID
 	if (f2fs_dev_is_umounted(&config) < 0)
 		return -1;
+#endif
 
 	/* Get device */
 	if (f2fs_get_device_info(&config) < 0)

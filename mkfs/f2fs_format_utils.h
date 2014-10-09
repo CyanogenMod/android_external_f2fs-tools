@@ -8,7 +8,11 @@
  */
 #define _LARGEFILE64_SOURCE
 
+#ifndef ANDROID
 #include "f2fs_fs.h"
+#else
+#include "include/f2fs_fs.h"
+#endif
 
 extern struct f2fs_configuration config;
 

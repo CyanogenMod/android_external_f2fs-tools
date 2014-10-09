@@ -15,6 +15,10 @@
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
+#else
+#ifdef ANDROID
+#include "include/f2fs_version.h"
+#endif
 #endif
 
 typedef u_int64_t	u64;
@@ -142,7 +146,9 @@ typedef unsigned long	pgoff_t;
 		snprintf(buf, len, #member)
 
 /* these are defined in kernel */
+#ifndef PAGE_SIZE
 #define PAGE_SIZE		4096
+#endif
 #define PAGE_CACHE_SIZE		4096
 #define BITS_PER_BYTE		8
 #define F2FS_SUPER_MAGIC	0xF2F52010	/* F2FS Magic Number */
@@ -677,7 +683,9 @@ extern u_int32_t f2fs_cal_crc32(u_int32_t, void *, int);
 extern int f2fs_crc_valid(u_int32_t blk_crc, void *buf, int len);
 
 extern void f2fs_init_configuration(struct f2fs_configuration *);
+#ifndef ANDROID
 extern int f2fs_dev_is_umounted(struct f2fs_configuration *);
+#endif
 extern int f2fs_get_device_info(struct f2fs_configuration *);
 extern void f2fs_finalize_device(struct f2fs_configuration *);
 

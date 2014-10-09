@@ -80,7 +80,11 @@ out:
 
 }
 
+#ifndef ANDROID
 int main(int argc, char *argv[])
+#else
+int fibmap_main(int argc, char *argv[])
+#endif
 {
 	int fd;
 	int ret = 0;

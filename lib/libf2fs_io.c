@@ -21,7 +21,11 @@
 #include <sys/ioctl.h>
 #include <linux/hdreg.h>
 
+#ifndef ANDROID
 #include <f2fs_fs.h>
+#else
+#include "include/f2fs_fs.h"
+#endif
 
 struct f2fs_configuration config;
 

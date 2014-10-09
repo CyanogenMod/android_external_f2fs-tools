@@ -16,9 +16,14 @@
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <time.h>
+#ifndef ANDROID
 #include <uuid/uuid.h>
 
 #include "f2fs_fs.h"
+#else
+#include "include/f2fs_fs.h"
+#endif
+
 #include "f2fs_format_utils.h"
 
 extern struct f2fs_configuration config;
@@ -90,6 +95,43 @@ static void configure_extension_list(void)
 
 	free(config.extension_list);
 }
+
+#ifdef ANDROID
+/*
+ This generates a version 4 universally unique identifier (UUID).
+ The format is: xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx
+ where each x is 4 bits populated by /dev/urandom.
+ The algorithm is derived from Theodore T'so's original e2fsprogs source.
+
+ 16 bytes will be written to the passed pointer, so allocate
+ at least that much space before calling uuid_generate.
+*/
+#define RANDOM "/dev/urandom"
+void uuid_generate(unsigned char *uuid)
+{
+	int fd;
+
+	fd = open(RANDOM, O_RDONLY);
+	if(-1 == fd)
+	{
+		perror("Error while opening " RANDOM);
+		return;
+	}
+
+	if(16 != read(fd, uuid, 16))
+	{
+		perror("Error while reading from " RANDOM);
+	}
+
+	uuid[6] &= 0x0F;
+	uuid[6] |= 0x40;
+
+	uuid[8] &= 0x3F;
+	uuid[8] |= 0x80;
+
+	close(fd);
+}
+#endif
 
 static int f2fs_prepare_super_block(void)
 {
