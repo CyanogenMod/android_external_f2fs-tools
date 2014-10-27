@@ -195,6 +195,11 @@ static inline struct sit_info *SIT_I(struct f2fs_sb_info *sbi)
 	return (struct sit_info *)(SM_I(sbi)->sit_info);
 }
 
+static inline void *inline_data_addr(struct f2fs_node *node_blk)
+{
+	return (void *)&(node_blk->i.i_addr[1]);
+}
+
 static inline unsigned long __bitmap_size(struct f2fs_sb_info *sbi, int flag)
 {
 	struct f2fs_checkpoint *ckpt = F2FS_CKPT(sbi);
@@ -327,9 +332,7 @@ static inline bool IS_VALID_BLK_ADDR(struct f2fs_sb_info *sbi, u32 addr)
 
 	if (addr >= F2FS_RAW_SUPER(sbi)->block_count ||
 				addr < SM_I(sbi)->main_blkaddr) {
-		DBG(0, "block addr [0x%x]\n", addr);
-		ASSERT(addr <  F2FS_RAW_SUPER(sbi)->block_count);
-		ASSERT(addr >= SM_I(sbi)->main_blkaddr);
+		ASSERT_MSG("block addr [0x%x]\n", addr);
 		return 0;
 	}
 
