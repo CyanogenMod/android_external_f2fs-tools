@@ -5,6 +5,9 @@
  *             http://www.samsung.com/
  *
  * Dual licensed under the GPL or LGPL version 2 licenses.
+ *
+ * The byteswap codes are copied from:
+ *   samba_3_master/lib/ccan/endian/endian.h under LGPL 2.1
  */
 #ifndef __F2FS_FS_H__
 #define __F2FS_FS_H__
@@ -29,6 +32,63 @@ typedef u32		block_t;
 typedef u32		nid_t;
 typedef u8		bool;
 typedef unsigned long	pgoff_t;
+
+#if HAVE_BYTESWAP_H
+#include <byteswap.h>
+#else
+/**
+ * bswap_16 - reverse bytes in a uint16_t value.
+ * @val: value whose bytes to swap.
+ *
+ * Example:
+ *	// Output contains "1024 is 4 as two bytes reversed"
+ *	printf("1024 is %u as two bytes reversed\n", bswap_16(1024));
+ */
+static inline uint16_t bswap_16(uint16_t val)
+{
+	return ((val & (uint16_t)0x00ffU) << 8)
+		| ((val & (uint16_t)0xff00U) >> 8);
+}
+
+/**
+ * bswap_32 - reverse bytes in a uint32_t value.
+ * @val: value whose bytes to swap.
+ *
+ * Example:
+ *	// Output contains "1024 is 262144 as four bytes reversed"
+ *	printf("1024 is %u as four bytes reversed\n", bswap_32(1024));
+ */
+static inline uint32_t bswap_32(uint32_t val)
+{
+	return ((val & (uint32_t)0x000000ffUL) << 24)
+		| ((val & (uint32_t)0x0000ff00UL) <<  8)
+		| ((val & (uint32_t)0x00ff0000UL) >>  8)
+		| ((val & (uint32_t)0xff000000UL) >> 24);
+}
+#endif /* !HAVE_BYTESWAP_H */
+
+#if !HAVE_BSWAP_64
+/**
+ * bswap_64 - reverse bytes in a uint64_t value.
+ * @val: value whose bytes to swap.
+ *
+ * Example:
+ *	// Output contains "1024 is 1125899906842624 as eight bytes reversed"
+ *	printf("1024 is %llu as eight bytes reversed\n",
+ *		(unsigned long long)bswap_64(1024));
+ */
+static inline uint64_t bswap_64(uint64_t val)
+{
+	return ((val & (uint64_t)0x00000000000000ffULL) << 56)
+		| ((val & (uint64_t)0x000000000000ff00ULL) << 40)
+		| ((val & (uint64_t)0x0000000000ff0000ULL) << 24)
+		| ((val & (uint64_t)0x00000000ff000000ULL) <<  8)
+		| ((val & (uint64_t)0x000000ff00000000ULL) >>  8)
+		| ((val & (uint64_t)0x0000ff0000000000ULL) >> 24)
+		| ((val & (uint64_t)0x00ff000000000000ULL) >> 40)
+		| ((val & (uint64_t)0xff00000000000000ULL) >> 56);
+}
+#endif
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define le16_to_cpu(x)	((__u16)(x))
@@ -371,6 +431,8 @@ struct f2fs_extent {
 
 #define F2FS_INLINE_XATTR	0x01	/* file inline xattr flag */
 #define F2FS_INLINE_DATA	0x02	/* file inline data flag */
+#define F2FS_INLINE_DENTRY	0x04	/* file inline dentry flag */
+
 #define MAX_INLINE_DATA		(sizeof(__le32) * (DEF_ADDRS_PER_INODE - \
 						F2FS_INLINE_XATTR_ADDRS - 1))
 
@@ -643,6 +705,24 @@ struct f2fs_dentry_block {
 	__u8 filename[NR_DENTRY_IN_BLOCK][F2FS_SLOT_LEN];
 } __attribute__((packed));
 
+/* for inline dir */
+#define NR_INLINE_DENTRY	(MAX_INLINE_DATA * BITS_PER_BYTE / \
+				((SIZE_OF_DIR_ENTRY + F2FS_SLOT_LEN) * \
+				BITS_PER_BYTE + 1))
+#define INLINE_DENTRY_BITMAP_SIZE	((NR_INLINE_DENTRY + \
+					BITS_PER_BYTE - 1) / BITS_PER_BYTE)
+#define INLINE_RESERVED_SIZE	(MAX_INLINE_DATA - \
+				((SIZE_OF_DIR_ENTRY + F2FS_SLOT_LEN) * \
+				NR_INLINE_DENTRY + INLINE_DENTRY_BITMAP_SIZE))
+
+/* inline directory entry structure */
+struct f2fs_inline_dentry {
+	__u8 dentry_bitmap[INLINE_DENTRY_BITMAP_SIZE];
+	__u8 reserved[INLINE_RESERVED_SIZE];
+	struct f2fs_dir_entry dentry[NR_INLINE_DENTRY];
+	__u8 filename[NR_INLINE_DENTRY][F2FS_SLOT_LEN];
+} __packed;
+
 /* file types used in inode_info->flags */
 enum FILE_TYPE {
 	F2FS_FT_UNKNOWN,
@@ -657,6 +737,7 @@ enum FILE_TYPE {
 	/* added for fsck */
 	F2FS_FT_ORPHAN,
 	F2FS_FT_XATTR,
+	F2FS_FT_LAST_FILE_TYPE = F2FS_FT_XATTR,
 };
 
 /* from f2fs/segment.h */
