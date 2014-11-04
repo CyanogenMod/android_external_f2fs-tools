@@ -1,7 +1,9 @@
 LOCAL_PATH:= $(call my-dir)
 
+LOCAL_CFLAGS := -DANDROID
+
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := mkfs/f2fs_format.c mkfs/f2fs_format_utils.c lib/libf2fs.c
+LOCAL_SRC_FILES := mkfs/f2fs_format.c mkfs/f2fs_format_main.c mkfs/f2fs_format_utils.c lib/libf2fs.c lib/libf2fs_io.c
 LOCAL_MODULE := libmake_f2fs
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_STATIC_LIBRARY)
@@ -15,7 +17,7 @@ LOCAL_STATIC_LIBRARIES := libmake_f2fs libcutils liblog libc
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := fsck/main.c fsck/fsck.c fsck/dump.c fsck/mount.c lib/libf2fs.c
+LOCAL_SRC_FILES := fsck/main.c fsck/fsck.c fsck/dump.c fsck/mount.c lib/libf2fs.c lib/libf2fs_io.c
 LOCAL_MODULE := libfsck_f2fs
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_STATIC_LIBRARY)
