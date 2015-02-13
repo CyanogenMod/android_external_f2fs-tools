@@ -14,6 +14,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libf2fs_fmt
 LOCAL_SRC_FILES := \
 	lib/libf2fs.c \
+	lib/libf2fs_io.c \
 	mkfs/f2fs_format.c \
 	mkfs/f2fs_format_utils.c \
 
@@ -28,6 +29,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libf2fs_fmt_host
 LOCAL_SRC_FILES := \
 	lib/libf2fs.c \
+	lib/libf2fs_io.c \
 	mkfs/f2fs_format.c \
 	mkfs/f2fs_format_utils.c \
 
@@ -49,6 +51,7 @@ LOCAL_CFLAGS := $(version_CFLAGS)
 LOCAL_EXPORT_CFLAGS := $(version_CFLAGS)
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include $(LOCAL_PATH)/mkfs
 LOCAL_STATIC_LIBRARIES := \
+     libf2fs_fmt_host \
      libf2fs_ioutils_host \
      libext2_uuid_host \
      libsparse_host \
