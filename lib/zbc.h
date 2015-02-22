@@ -23,7 +23,11 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#ifdef __linux__
 #include <linux/types.h>
+#else
+#include "linux_types.h"
+#endif
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <scsi/scsi.h>
