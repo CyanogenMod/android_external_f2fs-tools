@@ -44,7 +44,7 @@ int __attribute__((weak)) f2fs_trim_device()
 #if defined(__linux__) && defined(BLKDISCARD)
 	MSG(0, "Info: Discarding device: %lu sectors\n", config.total_sectors);
 	if (S_ISREG(stat_buf.st_mode)) {
-#ifdef FALLOC_FL_PUNCH_HOLE
+#if defined(HAVE_FALLOCATE) && defined(FALLOC_FL_PUNCH_HOLE)
 		if (fallocate(config.fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
 				range[0], range[1]) < 0) {
 			MSG(0, "Info: fallocate(PUNCH_HOLE|KEEP_SIZE) is failed\n");
