@@ -13,7 +13,21 @@
 #define __F2FS_FS_H__
 
 #include <inttypes.h>
+#if defined(linux)
 #include <linux/types.h>
+#else
+#include <stdint.h>
+typedef uint8_t __u8;
+typedef uint16_t __16;
+typedef uint32_t __32;
+typedef uint64_t __64;
+typedef __u16 __le16;
+typedef __u16 __be16;
+typedef __u32 __le32;
+typedef __u32 __be32;
+typedef __u64 __le64;
+typedef __u64 __be64;
+#endif
 #include <sys/types.h>
 
 #ifdef HAVE_CONFIG_H

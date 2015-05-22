@@ -1,8 +1,5 @@
 LOCAL_PATH:= $(call my-dir)
 
-# f2fs-tools depends on Linux kernel headers being in the system include path.
-ifeq ($(HOST_OS),linux)
-
 # The versions depend on $(LOCAL_PATH)/VERSION
 version_CFLAGS := -DF2FS_MAJOR_VERSION=1 -DF2FS_MINOR_VERSION=4 -DF2FS_TOOLS_VERSION=\"1.4.0\" -DF2FS_TOOLS_DATE=\"2014-10-18\"
 
@@ -116,5 +113,3 @@ LOCAL_C_INCLUDES := $(common_C_INCLUDES)
 LOCAL_CFLAGS := $(version_CFLAGS)
 LOCAL_HOST_SHARED_LIBRARIES :=  libext2_uuid_host
 include $(BUILD_HOST_EXECUTABLE)
-
-endif
