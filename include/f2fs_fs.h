@@ -252,6 +252,7 @@ struct f2fs_configuration {
 	int fix_on;
 	int bug_on;
 	int auto_fix;
+	__le32 feature;			/* defined features */
 } __attribute__((packed));
 
 #ifdef CONFIG_64BIT
@@ -316,6 +317,8 @@ enum {
 #define MAX_ACTIVE_NODE_LOGS	8
 #define MAX_ACTIVE_DATA_LOGS	8
 
+#define F2FS_FEATURE_ENCRYPT	0x0001
+
 /*
  * For superblock
  */
@@ -354,6 +357,10 @@ struct f2fs_super_block {
 	__le32 cp_payload;
 	__u8 version[VERSION_LEN];	/* the kernel version */
 	__u8 init_version[VERSION_LEN];	/* the initial kernel version */
+	__le32 feature;			/* defined features */
+	__u8 encryption_level;		/* versioning level for encryption */
+	__u8 encrypt_pw_salt[16];	/* Salt used for string2key algorithm */
+	__u8 reserved[871];		/* valid reserved region */
 } __attribute__((packed));
 
 /*
@@ -437,6 +444,7 @@ struct f2fs_extent {
 #define F2FS_INLINE_DATA	0x02	/* file inline data flag */
 #define F2FS_INLINE_DENTRY	0x04	/* file inline dentry flag */
 #define F2FS_DATA_EXIST		0x08	/* file inline data exist flag */
+#define F2FS_INLINE_DOTS	0x10	/* file having implicit dot dentries */
 
 #define MAX_INLINE_DATA		(sizeof(__le32) * (DEF_ADDRS_PER_INODE - \
 						F2FS_INLINE_XATTR_ADDRS - 1))
@@ -445,6 +453,15 @@ struct f2fs_extent {
 				- sizeof(__le32)*(DEF_ADDRS_PER_INODE + 5 - 1))
 
 #define DEF_DIR_LEVEL		0
+
+/*
+ * i_advise uses FADVISE_XXX_BIT. We can add additional hints later.
+ */
+#define FADVISE_COLD_BIT       0x01
+#define FADVISE_LOST_PINO_BIT  0x02
+#define FADVISE_ENCRYPT_BIT    0x04
+
+#define file_is_encrypt(i_advise)      ((i_advise) & FADVISE_ENCRYPT_BIT)
 
 struct f2fs_inode {
 	__le16 i_mode;			/* file mode */

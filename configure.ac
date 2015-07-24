@@ -68,6 +68,7 @@ AC_TYPE_SIZE_T
 # Checks for library functions.
 AC_FUNC_GETMNTENT
 AC_CHECK_FUNCS_ONCE([
+	fallocate
 	getmntent
 	memset
 ])
@@ -76,10 +77,10 @@ AS_IF([test "$ac_cv_header_byteswap_h" = "yes"],
       [AC_CHECK_DECLS([bswap_64],,,[#include <byteswap.h>])])
 
 # Install directories
-AC_PREFIX_DEFAULT([/usr])
-AC_SUBST([sbindir], [/sbin])
-AC_SUBST([sysconfdir], [/etc])
-AC_SUBST([localstatedir], [/var])
+#AC_PREFIX_DEFAULT([/usr])
+#AC_SUBST([sbindir], [/sbin])
+#AC_SUBST([sysconfdir], [/etc])
+#AC_SUBST([localstatedir], [/var])
 AC_CONFIG_FILES([
 	Makefile
 	man/Makefile
