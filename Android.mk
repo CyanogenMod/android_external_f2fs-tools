@@ -1,7 +1,7 @@
 LOCAL_PATH:= $(call my-dir)
 
 # f2fs-tools depends on Linux kernel headers being in the system include path.
-ifeq ($(HOST_OS),linux)
+ifneq (,$(filter linux darwin,$(HOST_OS)))
 
 # The versions depend on $(LOCAL_PATH)/VERSION
 version_CFLAGS := -DF2FS_MAJOR_VERSION=1 -DF2FS_MINOR_VERSION=4 -DF2FS_TOOLS_VERSION=\"1.4.0\" -DF2FS_TOOLS_DATE=\"2014-10-18\"
@@ -29,7 +29,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libf2fs_fmt_host
 LOCAL_SRC_FILES := \
 	lib/libf2fs.c \
-	lib/libf2fs_io.c \
 	mkfs/f2fs_format.c \
 	mkfs/f2fs_format_utils.c \
 

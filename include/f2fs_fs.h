@@ -13,7 +13,30 @@
 #define __F2FS_FS_H__
 
 #include <inttypes.h>
+#ifdef __linux__
 #include <linux/types.h>
+#else
+typedef signed char s8;
+typedef signed short s16;
+typedef signed int s32;
+typedef signed long long s64;
+typedef signed char __s8;
+typedef unsigned char __u8;
+typedef signed short __s16;
+typedef unsigned short __u16;
+typedef signed int __s32;
+typedef unsigned int __u32;
+typedef signed long long __s64;
+typedef unsigned long long __u64;
+typedef __u16 __le16;
+typedef __u16 __be16;
+typedef __u32 __le32;
+typedef __u32 __be32;
+typedef __u64 __le64;
+typedef __u64 __be64;
+#define off64_t off_t
+#define lseek64 lseek
+#endif
 #include <sys/types.h>
 
 #ifdef HAVE_CONFIG_H
@@ -26,6 +49,7 @@ typedef u_int16_t	u16;
 typedef u_int8_t	u8;
 typedef u32		block_t;
 typedef u32		nid_t;
+#undef bool
 typedef u8		bool;
 typedef unsigned long	pgoff_t;
 
