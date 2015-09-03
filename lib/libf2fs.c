@@ -14,12 +14,14 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#ifdef __linux__
 #include <mntent.h>
+#include <linux/hdreg.h>
+#endif
 #include <time.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/ioctl.h>
-#include <linux/hdreg.h>
 
 #include <f2fs_fs.h>
 
@@ -367,6 +369,7 @@ void f2fs_init_configuration(struct f2fs_configuration *c)
 
 static int is_mounted(const char *mpt, const char *device)
 {
+#ifdef __linux__
 	FILE *file = NULL;
 	struct mntent *mnt = NULL;
 
@@ -380,6 +383,10 @@ static int is_mounted(const char *mpt, const char *device)
 	}
 	endmntent(file);
 	return mnt ? 1 : 0;
+#else
+	/* TODO */
+	return 0;
+#endif
 }
 
 int f2fs_dev_is_umounted(struct f2fs_configuration *c)
@@ -387,11 +394,13 @@ int f2fs_dev_is_umounted(struct f2fs_configuration *c)
 	struct stat st_buf;
 	int ret = 0;
 
+#ifdef __linux__
 	ret = is_mounted(MOUNTED, c->device_name);
 	if (ret) {
 		MSG(0, "\tError: Not available on mounted device!\n");
 		return -1;
 	}
+#endif
 
 	/*
 	 * if failed due to /etc/mtab file not present
@@ -438,7 +447,9 @@ int f2fs_get_device_info(struct f2fs_configuration *c)
 	uint32_t total_sectors;
 #endif
 	struct stat stat_buf;
+#ifdef __linux__
 	struct hd_geometry geom;
+#endif
 	u_int64_t wanted_total_sectors = c->total_sectors;
 
 	fd = open(c->device_name, O_RDWR);
@@ -472,6 +483,7 @@ int f2fs_get_device_info(struct f2fs_configuration *c)
                         MSG(0, "from device of size %u sectors\n",
 			    (unsigned int) (stat_buf.st_size / c->sector_size));
                 }
+#ifdef __linux__
 	} else if (S_ISBLK(stat_buf.st_mode)) {
 		if (ioctl(fd, BLKSSZGET, &sector_size) < 0) {
 			MSG(0, "\tError: Using the default sector size\n");
@@ -522,6 +534,7 @@ int f2fs_get_device_info(struct f2fs_configuration *c)
 			c->start_sector = 0;
 		else
 			c->start_sector = geom.start;
+#endif
 	} else {
 		MSG(0, "\tError: Volume type is not supported!!!\n");
 		return -1;
