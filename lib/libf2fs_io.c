@@ -14,10 +14,12 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <mntent.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/ioctl.h>
+#include <linux/hdreg.h>
 
 #include <f2fs_fs.h>
 
