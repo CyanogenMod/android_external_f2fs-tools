@@ -25,7 +25,7 @@
 #include <linux/falloc.h>
 #endif
 
-int f2fs_trim_device()
+int __attribute__((weak)) f2fs_trim_device()
 {
 	unsigned long long range[2];
 	struct stat stat_buf;
