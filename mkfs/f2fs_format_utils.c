@@ -20,10 +20,8 @@
 
 #include "f2fs_fs.h"
 
-#ifdef HAVE_LINUX_FS_H
+#if defined(__linux__)
 #include <linux/fs.h>
-#endif
-#ifdef HAVE_LINUX_FALLOC_H
 #include <linux/falloc.h>
 #endif
 
@@ -43,8 +41,8 @@ int f2fs_trim_device()
 		return -1;
 	}
 
-#if defined(WITH_BLKDISCARD) && defined(BLKDISCARD)
-	MSG(0, "Info: Discarding device\n");
+#if defined(__linux__) && defined(BLKDISCARD)
+	MSG(0, "Info: Discarding device: %lu sectors\n", config.total_sectors);
 	if (S_ISREG(stat_buf.st_mode)) {
 #ifdef FALLOC_FL_PUNCH_HOLE
 		if (fallocate(config.fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
@@ -54,12 +52,17 @@ int f2fs_trim_device()
 #endif
 		return 0;
 	} else if (S_ISBLK(stat_buf.st_mode)) {
-		if (ioctl(config.fd, BLKDISCARD, &range) < 0) {
-			MSG(0, "Info: This device doesn't support TRIM\n");
-		} else {
-			MSG(0, "Info: Discarded %lu sectors\n",
-						config.total_sectors);
+#if defined(BLKSECDISCARD)
+		if (ioctl(config.fd, BLKSECDISCARD, &range) < 0) {
+#endif
+			if (ioctl(config.fd, BLKDISCARD, &range) < 0) {
+				MSG(0, "Info: This device doesn't support TRIM\n");
+			} else {
+				MSG(0, "Info: Wipe via secure discard failed, used discard instead\n");
+			}
+#if defined(BLKSECDISCARD)
 		}
+#endif
 	} else
 		return -1;
 #endif
