@@ -239,6 +239,7 @@ struct f2fs_configuration {
 	__u8 sb_version[VERSION_LEN + 1];
 	__u8 version[VERSION_LEN + 1];
 	char *vol_label;
+	u_int32_t bytes_reserved;
 	int heap;
 	int32_t fd, kd;
 	int32_t dump_fd;
