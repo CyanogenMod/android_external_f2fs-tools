@@ -355,8 +355,8 @@ void f2fs_init_configuration(struct f2fs_configuration *c)
 	c->blks_per_seg = DEFAULT_BLOCKS_PER_SEGMENT;
 
 	/* calculated by overprovision ratio */
-	c->reserved_segments = 48;
-	c->overprovision = 5;
+	c->reserved_segments = 0;
+	c->overprovision = 0;
 	c->segs_per_sec = 1;
 	c->secs_per_zone = 1;
 	c->segs_per_zone = 1;
@@ -546,15 +546,8 @@ int f2fs_get_device_info(struct f2fs_configuration *c)
 
 	}
 	MSG(0, "Info: sector size = %u\n", c->sector_size);
-	MSG(0, "Info: total sectors = %"PRIu64" (in %u bytes)\n",
-					c->total_sectors, c->sector_size);
-	if (c->total_sectors <
-			(F2FS_MIN_VOLUME_SIZE / c->sector_size)) {
-		MSG(0, "Error: Min volume size supported is %d\n",
-				F2FS_MIN_VOLUME_SIZE);
-		return -1;
-	}
-
+	MSG(0, "Info: total sectors = %"PRIu64" (%"PRIu64" MB)\n",
+				c->total_sectors, c->total_sectors >> 11);
 	return 0;
 }
 

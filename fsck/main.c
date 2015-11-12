@@ -20,6 +20,7 @@ void fsck_usage()
 	MSG(0, "  -a check/fix potential corruption, reported by f2fs\n");
 	MSG(0, "  -d debug level [default:0]\n");
 	MSG(0, "  -f check/fix entire partition\n");
+	MSG(0, "  -p preen mode [default is same as -a]\n");
 	MSG(0, "  -t show directory tree [-d -1]\n");
 	exit(1);
 }
@@ -43,12 +44,13 @@ void f2fs_parse_options(int argc, char *argv[])
 	char *prog = basename(argv[0]);
 
 	if (!strcmp("fsck.f2fs", prog)) {
-		const char *option_string = "ad:ft";
+		const char *option_string = "ad:fpt";
 
 		config.func = FSCK;
 		while ((option = getopt(argc, argv, option_string)) != EOF) {
 			switch (option) {
 			case 'a':
+			case 'p':
 				config.auto_fix = 1;
 				MSG(0, "Info: Fix the reported corruption.\n");
 				break;
@@ -140,16 +142,20 @@ void f2fs_parse_options(int argc, char *argv[])
 
 static void do_fsck(struct f2fs_sb_info *sbi)
 {
+	struct f2fs_checkpoint *ckpt = F2FS_CKPT(sbi);
+	u32 flag = le32_to_cpu(ckpt->ckpt_flags);
 	u32 blk_cnt;
 
 	fsck_init(sbi);
+
+	print_cp_state(flag);
 
 	fsck_chk_orphan_node(sbi);
 
 	/* Traverse all block recursively from root inode */
 	blk_cnt = 1;
-	fsck_chk_node_blk(sbi, NULL, sbi->root_ino_num,
-			F2FS_FT_DIR, TYPE_INODE, &blk_cnt);
+	fsck_chk_node_blk(sbi, NULL, sbi->root_ino_num, (u8 *)"/",
+			F2FS_FT_DIR, TYPE_INODE, &blk_cnt, NULL);
 	fsck_verify(sbi);
 	fsck_free(sbi);
 }
@@ -175,22 +181,7 @@ static void do_dump(struct f2fs_sb_info *sbi)
 		goto cleanup;
 	}
 
-	MSG(0, "Info: checkpoint state = %x : ", flag);
-	if (flag & CP_FSCK_FLAG)
-		MSG(0, "%s", " fsck");
-	if (flag & CP_ERROR_FLAG)
-		MSG(0, "%s", " error");
-	if (flag & CP_COMPACT_SUM_FLAG)
-		MSG(0, "%s", " compacted_summary");
-	if (flag & CP_ORPHAN_PRESENT_FLAG)
-		MSG(0, "%s", " orphan_inodes");
-	if (flag & CP_FASTBOOT_FLAG)
-		MSG(0, "%s", " fastboot");
-	if (flag & CP_UMOUNT_FLAG)
-		MSG(0, "%s", " unmount");
-	else
-		MSG(0, "%s", " sudden-power-off");
-	MSG(0, "\n");
+	print_cp_state(flag);
 
 	dump_node(sbi, opt->nid);
 cleanup:
