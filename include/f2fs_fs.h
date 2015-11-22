@@ -275,6 +275,7 @@ struct f2fs_configuration {
 	int fix_on;
 	int bug_on;
 	int auto_fix;
+	int ro;
 	__le32 feature;			/* defined features */
 } __attribute__((packed));
 
