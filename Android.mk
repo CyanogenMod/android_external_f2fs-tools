@@ -34,7 +34,7 @@ mkfs_f2fs_src_files := \
 	mkfs/f2fs_format_main.c
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := mkfs.f2fs
+LOCAL_MODULE := make_f2fs
 LOCAL_SRC_FILES := $(mkfs_f2fs_src_files)
 LOCAL_C_INCLUDES := $(common_C_INCLUDES)
 LOCAL_CFLAGS := $(version_CFLAGS)
