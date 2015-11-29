@@ -43,15 +43,6 @@ LOCAL_MODULE_TAGS := optional
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := mkfs.f2fs
-LOCAL_SRC_FILES := $(libf2fs_src_files) $(mkfs_f2fs_src_files)
-LOCAL_C_INCLUDES := $(common_C_INCLUDES)
-LOCAL_CFLAGS := $(version_CFLAGS)
-LOCAL_SHARED_LIBRARIES := libext2_uuid_host
-LOCAL_MODULE_TAGS := optional
-include $(BUILD_HOST_EXECUTABLE)
-
-include $(CLEAR_VARS)
 LOCAL_MODULE := libf2fs_mkfs_static
 LOCAL_SRC_FILES := $(mkfs_f2fs_src_files)
 LOCAL_C_INCLUDES := $(common_C_INCLUDES)
@@ -74,15 +65,6 @@ LOCAL_CFLAGS := $(version_CFLAGS)
 LOCAL_SHARED_LIBRARIES := libf2fs
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_EXECUTABLE)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := fsck.f2fs
-LOCAL_SRC_FILES := $(libf2fs_src_files) $(fsck_f2fs_src_files)
-LOCAL_C_INCLUDES := $(common_C_INCLUDES)
-LOCAL_CFLAGS := $(version_CFLAGS)
-LOCAL_SHARED_LIBRARIES := libext2_uuid_host
-LOCAL_MODULE_TAGS := optional
-include $(BUILD_HOST_EXECUTABLE)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libf2fs_fsck_static
