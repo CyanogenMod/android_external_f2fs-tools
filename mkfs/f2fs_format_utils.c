@@ -52,7 +52,7 @@ int __attribute__((weak)) f2fs_trim_device()
 #endif
 		return 0;
 	} else if (S_ISBLK(stat_buf.st_mode)) {
-#if defined(BLKSECDISCARD)
+#if defined(BLKSECDISCARD) && !defined(NO_SECURE_DISCARD)
 		if (ioctl(config.fd, BLKSECDISCARD, &range) < 0) {
 #endif
 			if (ioctl(config.fd, BLKDISCARD, &range) < 0) {
@@ -60,7 +60,7 @@ int __attribute__((weak)) f2fs_trim_device()
 			} else {
 				MSG(0, "Info: Wipe via secure discard failed, used discard instead\n");
 			}
-#if defined(BLKSECDISCARD)
+#if defined(BLKSECDISCARD) && !defined(NO_SECURE_DISCARD)
 		}
 #endif
 	} else
