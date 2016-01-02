@@ -25,6 +25,25 @@
 
 #include <f2fs_fs.h>
 
+#ifdef __ANDROID__
+char *hasmntopt (const struct mntent *mnt, const char *opt) {
+	const size_t optlen = strlen (opt);
+	char *rest = mnt->mnt_opts, *p;
+	
+	while ((p = strstr (rest, opt)) != NULL) {
+		if ((p == rest || p[-1] == ',')
+			&& (p[optlen] == '\0' || p[optlen] == '=' || p[optlen] == ','))
+			return p;
+
+			rest = strchr (p, ',');
+			if (rest == NULL)
+				break;
+			++rest;
+		}
+	return NULL;
+}
+#endif
+
 /*
  * UTF conversion codes are Copied from exfat tools.
  */
@@ -520,8 +539,10 @@ static int is_mounted(const char *mpt, const char *device)
 		if (!strcmp(device, mnt->mnt_fsname)) {
 #ifdef MNTOPT_RO
 			if (hasmntopt(mnt, MNTOPT_RO))
-				config.ro = 1;
+#else
+			if (hasmntopt(mnt, "ro"))
 #endif
+				config.ro = 1;
 			break;
 		}
 	}
