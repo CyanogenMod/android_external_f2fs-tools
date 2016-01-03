@@ -4,7 +4,7 @@ LOCAL_PATH:= $(call my-dir)
 ifneq (,$(filter linux darwin,$(HOST_OS)))
 
 # The versions depend on $(LOCAL_PATH)/VERSION
-version_CFLAGS := -DF2FS_MAJOR_VERSION=1 -DF2FS_MINOR_VERSION=5 -DF2FS_TOOLS_VERSION=\"1.5.0\" -DF2FS_TOOLS_DATE=\"2015-11-05\"
+version_CFLAGS := -DF2FS_MAJOR_VERSION=1 -DF2FS_MINOR_VERSION=6 -DF2FS_TOOLS_VERSION=\"1.6.0\" -DF2FS_TOOLS_DATE=\"2015-12-21\"
 
 # external/e2fsprogs/lib is needed for uuid/uuid.h
 common_C_INCLUDES := $(LOCAL_PATH)/include external/e2fsprogs/lib/ $(LOCAL_PATH)/mkfs
