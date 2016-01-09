@@ -101,7 +101,7 @@ static void f2fs_parse_options(int argc, char *argv[])
 			config.vol_label = optarg;
 			break;
 		case 'o':
-			config.overprovision = atof(optarg);
+			config.overprovision = atoi(optarg);
 			break;
 		case 'O':
 			parse_feature(strdup(optarg));
