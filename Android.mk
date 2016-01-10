@@ -38,6 +38,7 @@ LOCAL_MODULE := mkfs.f2fs
 LOCAL_SRC_FILES := $(mkfs_f2fs_src_files)
 LOCAL_C_INCLUDES := $(common_C_INCLUDES)
 LOCAL_CFLAGS := $(version_CFLAGS)
+LOCAL_CLANG := false
 LOCAL_SHARED_LIBRARIES := libf2fs libext2_uuid
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_EXECUTABLE)
