@@ -697,7 +697,7 @@ static int f2fs_write_super_block(void)
 	return 0;
 }
 
-#ifndef WITH_ANDROID
+#ifndef __ANDROID__
 static int discard_obsolete_dnode(struct f2fs_node *raw_node, u_int64_t offset)
 {
 	do {
@@ -791,7 +791,7 @@ static int f2fs_write_root_inode(void)
 	main_area_node_seg_blk_offset += config.cur_seg[CURSEG_WARM_NODE] *
 					config.blks_per_seg;
 
-#ifndef WITH_ANDROID
+#ifndef __ANDROID__
 	if (discard_obsolete_dnode(raw_node, main_area_node_seg_blk_offset)) {
 		free(raw_node);
 		return -1;
