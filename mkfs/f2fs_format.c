@@ -697,7 +697,7 @@ static int f2fs_write_super_block(void)
 	return 0;
 }
 
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(ANDROID_HOST)
 static int discard_obsolete_dnode(struct f2fs_node *raw_node, u_int64_t offset)
 {
 	do {
@@ -786,13 +786,26 @@ static int f2fs_write_root_inode(void)
 		return -1;
 	}
 
+#if defined(__ANDROID__) || defined(ANDROID_HOST)
+	memset(raw_node, 0xff, sizeof(struct f2fs_node));
+#endif
+
 	/* avoid power-off-recovery based on roll-forward policy */
 	main_area_node_seg_blk_offset = get_sb(main_blkaddr);
 	main_area_node_seg_blk_offset += config.cur_seg[CURSEG_WARM_NODE] *
 					config.blks_per_seg;
 
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(ANDROID_HOST)
 	if (discard_obsolete_dnode(raw_node, main_area_node_seg_blk_offset)) {
+		free(raw_node);
+		return -1;
+	}
+#else
+	main_area_node_seg_blk_offset *= blk_size_bytes;
+
+	DBG(1, "\tWriting root inode (warm node), at offset 0x%08"PRIx64"\n", main_area_node_seg_blk_offset);
+	if (dev_write(raw_node, main_area_node_seg_blk_offset, F2FS_BLKSIZE)) {
+		MSG(1, "\tError: While writing the raw_node to disk!!!\n");
 		free(raw_node);
 		return -1;
 	}
