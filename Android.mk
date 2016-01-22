@@ -103,10 +103,11 @@ LOCAL_EXPORT_CFLAGS := $(version_CFLAGS)
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include $(LOCAL_PATH)/mkfs
 LOCAL_STATIC_LIBRARIES := \
      libf2fs_fmt_host \
-     libf2fs_ioutils_host \
      libext2_uuid_host \
-     libsparse_host \
      libz
+LOCAL_WHOLE_STATIC_LIBRARIES := \
+     libf2fs_ioutils_host \
+     libsparse_host
 # LOCAL_LDLIBS := -ldl
 include $(BUILD_HOST_SHARED_LIBRARY)
 
