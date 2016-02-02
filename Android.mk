@@ -18,6 +18,11 @@ LOCAL_SRC_FILES := $(libf2fs_src_files)
 LOCAL_C_INCLUDES := $(common_C_INCLUDES)
 LOCAL_CFLAGS := $(version_CFLAGS)
 LOCAL_SHARED_LIBRARIES := libext2_uuid libsparse libz
+
+ifeq ($(TARGET_KERNEL_HAS_LOCALVERSION_AUTO), true)
+LOCAL_CFLAGS += -DHAS_LOCALVERSION_AUTO
+endif
+
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
