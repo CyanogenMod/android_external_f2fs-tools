@@ -598,6 +598,10 @@ void get_kernel_version(__u8 *version)
 {
 	int i;
 	for (i = 0; i < VERSION_LEN; i++) {
+#ifdef HAS_LOCALVERSION_AUTO
+		if (version[i] == '(')
+			break;
+#endif
 		if (version[i] == '\n')
 			break;
 	}
