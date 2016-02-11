@@ -628,6 +628,10 @@ int f2fs_get_device_info(struct f2fs_configuration *c)
 	if (c->kd < 0)
 		MSG(0, "\tInfo: No support kernel version!\n");
 
+	c->fd_sha1 = open("/sys/fs/f2fs/f2fs_sha1", O_RDONLY);
+	if (c->fd_sha1 < 0)
+		MSG(0, "\tInfo: No f2fs versioning support!\n");
+
 	if (fstat(fd, &stat_buf) < 0 ) {
 		MSG(0, "\tError: Failed to get the device stat!\n");
 		return -1;

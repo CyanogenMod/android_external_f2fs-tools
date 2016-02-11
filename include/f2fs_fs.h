@@ -266,6 +266,7 @@ struct f2fs_configuration {
 	u_int32_t bytes_reserved;
 	int heap;
 	int32_t fd, kd;
+	int32_t fd_sha1;
 	int32_t dump_fd;
 	char *device_name;
 	char *extension_list;
