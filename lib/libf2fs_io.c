@@ -35,6 +35,15 @@ int dev_read_version(void *buf, __u64 offset, size_t len)
 	return 0;
 }
 
+int dev_read_sha1(void *buf, __u64 offset, size_t len)
+{
+	if (lseek64(config.fd_sha1, (off64_t)offset, SEEK_SET) < 0)
+		return -1;
+	if (read(config.fd_sha1, buf, len) < 0)
+		return -1;
+	return 0;
+}
+
 int dev_read(void *buf, __u64 offset, size_t len)
 {
 	if (lseek64(config.fd, (off64_t)offset, SEEK_SET) < 0)

@@ -306,7 +306,10 @@ int validate_super_block(struct f2fs_sb_info *sbi, int block)
 
 	if (!sanity_check_raw_super(sbi->raw_super)) {
 		/* get kernel version */
-		if (config.kd >= 0) {
+		if (config.fd_sha1 >= 0) {
+			dev_read_sha1(config.version, 0, VERSION_LEN);
+			get_kernel_version(config.version);
+		} else if (config.kd >= 0) {
 			dev_read_version(config.version, 0, VERSION_LEN);
 			get_kernel_version(config.version);
 		} else {
