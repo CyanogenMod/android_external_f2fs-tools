@@ -667,7 +667,9 @@ struct f2fs_nat_block {
  * disk is 16 TB and it equals to 16 * 1024 * 1024 / 2 segments.
  */
 #define F2FS_MAX_SEGMENT       ((16 * 1024 * 1024) / 2)
-#define MAX_SIT_BITMAP_SIZE    ((F2FS_MAX_SEGMENT / SIT_ENTRY_PER_BLOCK) / 8)
+#define MAX_SIT_BITMAP_SIZE    (SEG_ALIGN(ALIGN(F2FS_MAX_SEGMENT, \
+						SIT_ENTRY_PER_BLOCK)) * \
+						config.blks_per_seg / 8)
 
 /*
  * Note that f2fs_sit_entry->vblocks has the following bit-field information.
@@ -730,7 +732,7 @@ struct f2fs_summary {
 
 struct summary_footer {
 	unsigned char entry_type;	/* SUM_TYPE_XXX */
-	__u32 check_sum;		/* summary checksum */
+	__le32 check_sum;		/* summary checksum */
 } __attribute__((packed));
 
 #define SUM_JOURNAL_SIZE	(F2FS_BLKSIZE - SUM_FOOTER_SIZE -\
@@ -743,6 +745,13 @@ struct summary_footer {
 				sizeof(struct sit_journal_entry))
 #define SIT_JOURNAL_RESERVED	((SUM_JOURNAL_SIZE - 2) %\
 				sizeof(struct sit_journal_entry))
+
+/*
+ * Reserved area should make size of f2fs_extra_info equals to
+ * that of nat_journal and sit_journal.
+ */
+#define EXTRA_INFO_RESERVED	(SUM_JOURNAL_SIZE - 2 - 8)
+
 /*
  * frequently updated NAT/SIT entries can be stored in the spare area in
  * summary blocks
@@ -772,18 +781,28 @@ struct sit_journal {
 	__u8 reserved[SIT_JOURNAL_RESERVED];
 } __attribute__((packed));
 
-/* 4KB-sized summary block structure */
-struct f2fs_summary_block {
-	struct f2fs_summary entries[ENTRIES_IN_SUM];
+struct f2fs_extra_info {
+	__le64 kbytes_written;
+	__u8 reserved[EXTRA_INFO_RESERVED];
+} __attribute__((packed));
+
+struct f2fs_journal {
 	union {
 		__le16 n_nats;
 		__le16 n_sits;
 	};
-	/* spare area is used by NAT or SIT journals */
+	/* spare area is used by NAT or SIT journals or extra info */
 	union {
 		struct nat_journal nat_j;
 		struct sit_journal sit_j;
+		struct f2fs_extra_info info;
 	};
+} __attribute__((packed));
+
+/* 4KB-sized summary block structure */
+struct f2fs_summary_block {
+	struct f2fs_summary entries[ENTRIES_IN_SUM];
+	struct f2fs_journal journal;
 	struct summary_footer footer;
 } __attribute__((packed));
 
@@ -808,6 +827,9 @@ typedef __le32	f2fs_hash_t;
 
 /* MAX level for dir lookup */
 #define MAX_DIR_HASH_DEPTH	63
+
+/* MAX buckets in one level of dir */
+#define MAX_DIR_BUCKETS		(1 << ((MAX_DIR_HASH_DEPTH / 2) - 1))
 
 #define SIZE_OF_DIR_ENTRY	11	/* by byte */
 #define SIZE_OF_DENTRY_BITMAP	((NR_DENTRY_IN_BLOCK + BITS_PER_BYTE - 1) / \
