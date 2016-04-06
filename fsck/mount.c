@@ -331,8 +331,10 @@ int validate_super_block(struct f2fs_sb_info *sbi, int block)
 					sizeof(struct f2fs_super_block));
 			ASSERT(ret >= 0);
 
+#ifndef DISABLE_FORCED_CHECK
 			config.auto_fix = 0;
 			config.fix_on = 1;
+#endif
 		}
 		print_sb_state(sbi->raw_super);
 		return 0;

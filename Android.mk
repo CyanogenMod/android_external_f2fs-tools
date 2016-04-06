@@ -9,6 +9,11 @@ version_CFLAGS := -DF2FS_MAJOR_VERSION=1 -DF2FS_MINOR_VERSION=6 -DF2FS_TOOLS_VER
 # external/e2fsprogs/lib is needed for uuid/uuid.h
 common_C_INCLUDES := $(LOCAL_PATH)/include external/e2fsprogs/lib/ $(LOCAL_PATH)/mkfs
 
+# fsck.f2fs forces a full file system scan whenever /proc/version changes
+ifeq ($(F2FS_DISABLE_FORCED_CHECK), true)
+    DISABLE_FORCED_CHECK_FLAG := -DDISABLE_FORCED_CHECK
+endif
+
 #----------------------------------------------------------
 libf2fs_src_files := lib/libf2fs.c lib/libf2fs_io.c
 
@@ -63,7 +68,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := fsck.f2fs
 LOCAL_SRC_FILES := $(fsck_f2fs_src_files)
 LOCAL_C_INCLUDES := $(common_C_INCLUDES)
-LOCAL_CFLAGS := $(version_CFLAGS)
+LOCAL_CFLAGS := $(version_CFLAGS) $(DISABLE_FORCED_CHECK_FLAG)
 LOCAL_SHARED_LIBRARIES := libf2fs
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_EXECUTABLE)
@@ -72,7 +77,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libf2fs_fsck_static
 LOCAL_SRC_FILES := $(fsck_f2fs_src_files)
 LOCAL_C_INCLUDES := $(common_C_INCLUDES)
-LOCAL_CFLAGS := $(version_CFLAGS) -Dmain=fsck_f2fs_main
+LOCAL_CFLAGS := $(version_CFLAGS) -Dmain=fsck_f2fs_main $(DISABLE_FORCED_CHECK_FLAG)
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_STATIC_LIBRARY)
 
