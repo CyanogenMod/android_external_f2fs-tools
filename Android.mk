@@ -104,7 +104,7 @@ LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include $(LOCAL_PATH)/mkfs
 LOCAL_STATIC_LIBRARIES := \
      libf2fs_fmt_host \
      libf2fs_ioutils_host \
-     libext2_uuid_host \
+     libext2_uuid-host \
      libsparse_host \
      libz
 # LOCAL_LDLIBS := -ldl
