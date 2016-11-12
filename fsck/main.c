@@ -5,6 +5,11 @@
  *             http://www.samsung.com/
  * Copyright (c) 2015 Jaegeuk Kim <jaegeuk@kernel.org>
  *  : implement defrag.f2fs
+ * Copyright (C) 2015 Huawei Ltd.
+ *   Hou Pengyang <houpengyang@huawei.com>
+ *   Liu Shuoran <liushuoran@huawei.com>
+ *   Jaegeuk Kim <jaegeuk@kernel.org>
+ *  : add sload.f2fs
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,7 +27,7 @@ void fsck_usage()
 	MSG(0, "  -a check/fix potential corruption, reported by f2fs\n");
 	MSG(0, "  -d debug level [default:0]\n");
 	MSG(0, "  -f check/fix entire partition\n");
-	MSG(0, "  -p preen mode [default is same as -a]\n");
+	MSG(0, "  -p preen mode [default:0 the same as -a [0|1]]\n");
 	MSG(0, "  -t show directory tree [-d -1]\n");
 	exit(1);
 }
@@ -33,6 +38,7 @@ void dump_usage()
 	MSG(0, "[options]:\n");
 	MSG(0, "  -d debug level [default:0]\n");
 	MSG(0, "  -i inode no (hex)\n");
+	MSG(0, "  -n [NAT dump segno from #1~#2 (decimal), for all 0~-1]\n");
 	MSG(0, "  -s [SIT dump segno from #1~#2 (decimal), for all 0~-1]\n");
 	MSG(0, "  -a [SSA dump segno from #1~#2 (decimal), for all 0~-1]\n");
 	MSG(0, "  -b blk_addr (in 4KB)\n");
@@ -52,21 +58,54 @@ void defrag_usage()
 	exit(1);
 }
 
+void resize_usage()
+{
+	MSG(0, "\nUsage: resize.f2fs [options] device\n");
+	MSG(0, "[options]:\n");
+	MSG(0, "  -d debug level [default:0]\n");
+	MSG(0, "  -t target sectors [default: device size]\n");
+	exit(1);
+}
+
+void sload_usage()
+{
+	MSG(0, "\nUsage: sload.f2fs [options] device\n");
+	MSG(0, "[options]:\n");
+	MSG(0, "  -f source directory [path of the source directory]\n");
+	MSG(0, "  -t mount point [prefix of target fs path, default:/]\n");
+	MSG(0, "  -d debug level [default:0]\n");
+	exit(1);
+}
+
 void f2fs_parse_options(int argc, char *argv[])
 {
 	int option = 0;
 	char *prog = basename(argv[0]);
 
 	if (!strcmp("fsck.f2fs", prog)) {
-		const char *option_string = "ad:fpt";
+		const char *option_string = "ad:fp:t";
 
 		config.func = FSCK;
 		while ((option = getopt(argc, argv, option_string)) != EOF) {
 			switch (option) {
 			case 'a':
-			case 'p':
 				config.auto_fix = 1;
 				MSG(0, "Info: Fix the reported corruption.\n");
+				break;
+			case 'p':
+				/* preen mode has different levels:
+				 *  0: default level, the same as -a
+				 *  1: check meta
+				 */
+				config.preen_mode = atoi(optarg);
+				if (config.preen_mode < 0)
+					config.preen_mode = PREEN_MODE_0;
+				else if (config.preen_mode >= PREEN_MODE_MAX)
+					config.preen_mode = PREEN_MODE_MAX - 1;
+				if (config.preen_mode == PREEN_MODE_0)
+					config.auto_fix = 1;
+				MSG(0, "Info: Fix the reported corruption in "
+					"preen mode %d\n", config.preen_mode);
 				break;
 			case 'd':
 				config.dbg_lv = atoi(optarg);
@@ -87,9 +126,11 @@ void f2fs_parse_options(int argc, char *argv[])
 			}
 		}
 	} else if (!strcmp("dump.f2fs", prog)) {
-		const char *option_string = "d:i:s:a:b:";
+		const char *option_string = "d:i:n:s:a:b:";
 		static struct dump_option dump_opt = {
-			.nid = 3,	/* default root ino */
+			.nid = 0,	/* default root ino */
+			.start_nat = -1,
+			.end_nat = -1,
 			.start_sit = -1,
 			.end_sit = -1,
 			.start_ssa = -1,
@@ -114,6 +155,11 @@ void f2fs_parse_options(int argc, char *argv[])
 				else
 					ret = sscanf(optarg, "%x",
 							&dump_opt.nid);
+				break;
+			case 'n':
+				ret = sscanf(optarg, "%d~%d",
+							&dump_opt.start_nat,
+							&dump_opt.end_nat);
 				break;
 			case 's':
 				ret = sscanf(optarg, "%d~%d",
@@ -189,6 +235,57 @@ void f2fs_parse_options(int argc, char *argv[])
 			}
 			ASSERT(ret >= 0);
 		}
+	} else if (!strcmp("resize.f2fs", prog)) {
+		const char *option_string = "d:t:";
+
+		config.func = RESIZE;
+		while ((option = getopt(argc, argv, option_string)) != EOF) {
+			int ret = 0;
+
+			switch (option) {
+			case 'd':
+				config.dbg_lv = atoi(optarg);
+				MSG(0, "Info: Debug level = %d\n",
+							config.dbg_lv);
+				break;
+			case 't':
+				if (strncmp(optarg, "0x", 2))
+					ret = sscanf(optarg, "%"PRIu64"",
+							&config.target_sectors);
+				else
+					ret = sscanf(optarg, "%"PRIx64"",
+							&config.target_sectors);
+				break;
+			default:
+				MSG(0, "\tError: Unknown option %c\n", option);
+				resize_usage();
+				break;
+			}
+			ASSERT(ret >= 0);
+		}
+	} else if (!strcmp("sload.f2fs", prog)) {
+		const char *option_string = "d:f:t:";
+
+		config.func = SLOAD;
+		while ((option = getopt(argc, argv, option_string)) != EOF) {
+			switch (option) {
+			case 'd':
+				config.dbg_lv = atoi(optarg);
+				MSG(0, "Info: Debug level = %d\n",
+						config.dbg_lv);
+				break;
+			case 'f':
+				config.from_dir = (char *)optarg;
+				break;
+			case 't':
+				config.mount_point = (char *)optarg;
+				break;
+			default:
+				MSG(0, "\tError: Unknown option %c\n", option);
+				sload_usage();
+				break;
+			}
+		}
 	}
 
 	if ((optind + 1) != argc) {
@@ -199,6 +296,10 @@ void f2fs_parse_options(int argc, char *argv[])
 			dump_usage();
 		else if (config.func == DEFRAG)
 			defrag_usage();
+		else if (config.func == RESIZE)
+			resize_usage();
+		else if (config.func == SLOAD)
+			sload_usage();
 	}
 	config.device_name = argv[optind];
 }
@@ -212,6 +313,37 @@ static void do_fsck(struct f2fs_sb_info *sbi)
 	fsck_init(sbi);
 
 	print_cp_state(flag);
+
+	if (!config.fix_on && !config.bug_on) {
+		switch (config.preen_mode) {
+		case PREEN_MODE_1:
+			if (fsck_chk_meta(sbi)) {
+				MSG(0, "[FSCK] F2FS metadata   [Fail]");
+				MSG(0, "\tError: meta does not match, "
+					"force check all\n");
+			} else {
+				MSG(0, "[FSCK] F2FS metadata   [Ok..]");
+				fsck_free(sbi);
+				return;
+			}
+
+			if (!config.ro)
+				config.fix_on = 1;
+			break;
+		}
+	} else {
+		/*
+		 * we can hit this in 3 situations:
+		 *  1. fsck -f, fix_on has already been set to 1 when
+		 *     parsing options;
+		 *  2. fsck -a && CP_FSCK_FLAG is set, fix_on has already
+		 *     been set to 1 when checking CP_FSCK_FLAG;
+		 *  3. fsck -p 1 && error is detected, then bug_on is set,
+		 *     we set fix_on = 1 here, so that fsck can fix errors
+		 *     automatically
+		*/
+		config.fix_on = 1;
+	}
 
 	fsck_chk_orphan_node(sbi);
 
@@ -229,26 +361,25 @@ static void do_dump(struct f2fs_sb_info *sbi)
 	struct f2fs_checkpoint *ckpt = F2FS_CKPT(sbi);
 	u32 flag = le32_to_cpu(ckpt->ckpt_flags);
 
-	fsck_init(sbi);
-
+	if (opt->end_nat == -1)
+		opt->end_nat = NM_I(sbi)->max_nid;
 	if (opt->end_sit == -1)
 		opt->end_sit = SM_I(sbi)->main_segments;
 	if (opt->end_ssa == -1)
 		opt->end_ssa = SM_I(sbi)->main_segments;
+	if (opt->start_nat != -1)
+		nat_dump(sbi, opt->start_nat, opt->end_nat);
 	if (opt->start_sit != -1)
 		sit_dump(sbi, opt->start_sit, opt->end_sit);
 	if (opt->start_ssa != -1)
 		ssa_dump(sbi, opt->start_ssa, opt->end_ssa);
-	if (opt->blk_addr != -1) {
+	if (opt->blk_addr != -1)
 		dump_info_from_blkaddr(sbi, opt->blk_addr);
-		goto cleanup;
-	}
+	if (opt->nid)
+		dump_node(sbi, opt->nid);
 
 	print_cp_state(flag);
 
-	dump_node(sbi, opt->nid);
-cleanup:
-	fsck_free(sbi);
 }
 
 static int do_defrag(struct f2fs_sb_info *sbi)
@@ -300,6 +431,40 @@ out_range:
 	return -1;
 }
 
+static int do_resize(struct f2fs_sb_info *sbi)
+{
+	struct f2fs_super_block *sb = F2FS_RAW_SUPER(sbi);
+
+	if (!config.target_sectors)
+		config.target_sectors = config.total_sectors;
+
+	if (config.target_sectors > config.total_sectors) {
+		ASSERT_MSG("Out-of-range Target=0x%"PRIx64" / 0x%"PRIx64"",
+				config.target_sectors, config.total_sectors);
+		return -1;
+	}
+
+	if (config.target_sectors ==
+			(get_sb(block_count) << get_sb(log_sectors_per_block))) {
+		ASSERT_MSG("Nothing to resize; it's same");
+		return -1;
+	}
+	return f2fs_resize(sbi);
+}
+
+static int do_sload(struct f2fs_sb_info *sbi)
+{
+	if (!config.from_dir) {
+		MSG(0, "\tError: Need source directory\n");
+		sload_usage();
+		return -1;
+	}
+	if (!config.mount_point)
+		config.mount_point = "/";
+
+	return f2fs_sload(sbi, config.from_dir, config.mount_point, NULL, NULL);
+}
+
 int main(int argc, char **argv)
 {
 	struct f2fs_sb_info *sbi;
@@ -349,6 +514,13 @@ fsck_again:
 		ret = do_defrag(sbi);
 		if (ret)
 			goto out_err;
+		break;
+	case RESIZE:
+		if (do_resize(sbi))
+			goto out_err;
+		break;
+	case SLOAD:
+		do_sload(sbi);
 		break;
 	}
 

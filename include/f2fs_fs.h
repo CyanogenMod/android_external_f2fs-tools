@@ -52,6 +52,7 @@ typedef u32		nid_t;
 #undef bool
 typedef u8		bool;
 typedef unsigned long	pgoff_t;
+typedef unsigned short	umode_t;
 
 #if HAVE_BYTESWAP_H
 #include <byteswap.h>
@@ -232,6 +233,9 @@ static inline uint64_t bswap_64(uint64_t val)
 #define F2FS_SUPER_MAGIC	0xF2F52010	/* F2FS Magic Number */
 #define CHECKSUM_OFFSET		4092
 
+#define F2FS_BYTES_TO_BLK(bytes)    ((bytes) >> F2FS_BLKSIZE_BITS)
+#define F2FS_BLKSIZE_BITS 12
+
 /* for mkfs */
 #define	F2FS_NUMBER_OF_CHECKPOINT_PACK	2
 #define	DEFAULT_SECTOR_SIZE		512
@@ -245,18 +249,49 @@ enum f2fs_config_func {
 	FSCK,
 	DUMP,
 	DEFRAG,
+	RESIZE,
+	SLOAD,
 };
+
+enum zbc_sk {
+	ZBC_E_ILLEGAL_REQUEST         = 0x5,
+	ZBC_E_DATA_PROTECT            = 0x7,
+	ZBC_E_ABORTED_COMMAND         = 0xB,
+};
+
+/**
+ * Additional sense code/Additional sense code qualifier.
+ */
+enum zbc_asc_ascq {
+	ZBC_E_INVALID_FIELD_IN_CDB                  = 0x2400,
+	ZBC_E_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE    = 0x2100,
+	ZBC_E_UNALIGNED_WRITE_COMMAND               = 0x2104,
+	ZBC_E_WRITE_BOUNDARY_VIOLATION              = 0x2105,
+	ZBC_E_ATTEMPT_TO_READ_INVALID_DATA          = 0x2106,
+	ZBC_E_READ_BOUNDARY_VIOLATION               = 0x2107,
+	ZBC_E_ZONE_IS_READ_ONLY                     = 0x2708,
+	ZBC_E_INSUFFICIENT_ZONE_RESOURCES           = 0x550E,
+};
+
+struct zbc_errno {
+	enum zbc_sk		sk;
+	enum zbc_asc_ascq	asc_ascq;
+};
+typedef struct zbc_errno zbc_errno_t;
 
 struct f2fs_configuration {
 	u_int32_t sector_size;
 	u_int32_t reserved_segments;
+	u_int32_t new_reserved_segments;
 	double overprovision;
+	double new_overprovision;
 	u_int32_t cur_seg[6];
 	u_int32_t segs_per_sec;
 	u_int32_t secs_per_zone;
 	u_int32_t segs_per_zone;
 	u_int32_t start_sector;
 	u_int64_t total_sectors;
+	u_int64_t target_sectors;
 	u_int32_t sectors_per_blk;
 	u_int32_t blks_per_seg;
 	__u8 init_version[VERSION_LEN + 1];
@@ -276,6 +311,7 @@ struct f2fs_configuration {
 	int fix_on;
 	int bug_on;
 	int auto_fix;
+	int preen_mode;
 	int ro;
 	__le32 feature;			/* defined features */
 
@@ -284,6 +320,17 @@ struct f2fs_configuration {
 	u_int64_t defrag_start;
 	u_int64_t defrag_len;
 	u_int64_t defrag_target;
+
+	/* sload parameters */
+	char *from_dir;
+	char *mount_point;
+
+	/* to detect zbc error */
+	int smr_mode;
+	u_int32_t nr_zones;
+	u_int32_t nr_conventional;
+	size_t zone_sectors;
+	zbc_errno_t zbd_errno;
 } __attribute__((packed));
 
 #ifdef CONFIG_64BIT
@@ -301,6 +348,9 @@ struct f2fs_configuration {
 #define get_sb_le64(member)			le64_to_cpu(sb->member)
 #define get_sb_le32(member)			le32_to_cpu(sb->member)
 #define get_sb_le16(member)			le16_to_cpu(sb->member)
+#define get_newsb_le64(member)			le64_to_cpu(new_sb->member)
+#define get_newsb_le32(member)			le32_to_cpu(new_sb->member)
+#define get_newsb_le16(member)			le16_to_cpu(new_sb->member)
 
 #define set_sb(member, val)	\
 			do {						\
@@ -319,6 +369,16 @@ struct f2fs_configuration {
 				case 8: t = get_sb_le64(member); break; \
 				case 4: t = get_sb_le32(member); break; \
 				case 2: t = get_sb_le16(member); break; \
+				} 					\
+				t; \
+			})
+#define get_newsb(member)		\
+			({						\
+				typeof(new_sb->member) t;		\
+				switch (sizeof(t)) {			\
+				case 8: t = get_newsb_le64(member); break; \
+				case 4: t = get_newsb_le32(member); break; \
+				case 2: t = get_newsb_le16(member); break; \
 				} 					\
 				t; \
 			})
@@ -422,6 +482,7 @@ enum {
 #define MAX_ACTIVE_DATA_LOGS	8
 
 #define F2FS_FEATURE_ENCRYPT	0x0001
+#define F2FS_FEATURE_HMSMR	0x0002
 
 #define MAX_VOLUME_NAME		512
 
@@ -536,7 +597,9 @@ struct f2fs_extent {
 #define F2FS_NAME_LEN		255
 #define F2FS_INLINE_XATTR_ADDRS	50	/* 200 bytes for inline xattrs */
 #define DEF_ADDRS_PER_INODE	923	/* Address Pointers in an Inode */
-#define ADDRS_PER_INODE(fi)	addrs_per_inode(fi)
+#define ADDRS_PER_INODE(i)	addrs_per_inode(i)
+#define DEF_ADDRS_PER_INODE_INLINE_XATTR				\
+		(DEF_ADDRS_PER_INODE - F2FS_INLINE_XATTR_ADDRS)
 #define ADDRS_PER_BLOCK         1018	/* Address Pointers in a Direct Block */
 #define NIDS_PER_BLOCK          1018	/* Node IDs in an Indirect Block */
 
@@ -552,8 +615,8 @@ struct f2fs_extent {
 #define F2FS_DATA_EXIST		0x08	/* file inline data exist flag */
 #define F2FS_INLINE_DOTS	0x10	/* file having implicit dot dentries */
 
-#define MAX_INLINE_DATA		(sizeof(__le32) * (DEF_ADDRS_PER_INODE - \
-						F2FS_INLINE_XATTR_ADDRS - 1))
+#define MAX_INLINE_DATA (sizeof(__le32) *				\
+			(DEF_ADDRS_PER_INODE_INLINE_XATTR - 1))
 
 #define INLINE_DATA_OFFSET	(PAGE_CACHE_SIZE - sizeof(struct node_footer) \
 				- sizeof(__le32)*(DEF_ADDRS_PER_INODE + 5 - 1))
@@ -641,6 +704,7 @@ struct f2fs_node {
  * For NAT entries
  */
 #define NAT_ENTRY_PER_BLOCK (PAGE_CACHE_SIZE / sizeof(struct f2fs_nat_entry))
+#define NAT_BLOCK_OFFSET(start_nid) (start_nid / NAT_ENTRY_PER_BLOCK)
 
 struct f2fs_nat_entry {
 	__u8 version;		/* latest version of cached nat entry */
@@ -933,6 +997,8 @@ extern int dev_reada_block(__u64);
 extern int dev_read_version(void *, __u64, size_t);
 extern void get_kernel_version(__u8 *);
 f2fs_hash_t f2fs_dentry_hash(const unsigned char *, int);
+
+extern int zbc_scsi_report_zones(struct f2fs_configuration *);
 
 extern struct f2fs_configuration config;
 

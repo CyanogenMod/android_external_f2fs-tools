@@ -25,6 +25,13 @@
 #include <linux/falloc.h>
 #endif
 
+#ifndef BLKDISCARD
+#define BLKDISCARD	_IO(0x12,119)
+#endif
+#ifndef BLKSECDISCARD
+#define BLKSECDISCARD	_IO(0x12,125)
+#endif
+
 int __attribute__((weak)) f2fs_trim_device()
 {
 	unsigned long long range[2];
@@ -52,17 +59,21 @@ int __attribute__((weak)) f2fs_trim_device()
 #endif
 		return 0;
 	} else if (S_ISBLK(stat_buf.st_mode)) {
-#if defined(BLKSECDISCARD)
+#ifdef BLKSECDISCARD
 		if (ioctl(config.fd, BLKSECDISCARD, &range) < 0) {
-#endif
-			if (ioctl(config.fd, BLKDISCARD, &range) < 0) {
-				MSG(0, "Info: This device doesn't support TRIM\n");
-			} else {
-				MSG(0, "Info: Wipe via secure discard failed, used discard instead\n");
-			}
-#if defined(BLKSECDISCARD)
+			MSG(0, "Info: This device doesn't support BLKSECDISCARD\n");
+		} else {
+			MSG(0, "Info: Secure Discarded %lu sectors\n",
+						config.total_sectors);
+			return 0;
 		}
 #endif
+		if (ioctl(config.fd, BLKDISCARD, &range) < 0) {
+			MSG(0, "Info: This device doesn't support BLKDISCARD\n");
+		} else {
+			MSG(0, "Info: Discarded %lu sectors\n",
+						config.total_sectors);
+		}
 	} else
 		return -1;
 #endif

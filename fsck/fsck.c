@@ -369,7 +369,7 @@ static int sanity_check_nid(struct f2fs_sb_info *sbi, u32 nid,
 	}
 
 	if (!IS_VALID_BLK_ADDR(sbi, ni->blk_addr)) {
-		ASSERT_MSG("blkaddres is not valid. [0x%x]", ni->blk_addr);
+		ASSERT_MSG("blkaddress is not valid. [0x%x]", ni->blk_addr);
 		return -EINVAL;
 	}
 
@@ -383,7 +383,7 @@ static int sanity_check_nid(struct f2fs_sb_info *sbi, u32 nid,
 				le32_to_cpu(node_blk->footer.ino));
 		return -EINVAL;
 	}
-	if (ni->ino != node_blk->footer.ino) {
+	if (ni->ino != le32_to_cpu(node_blk->footer.ino)) {
 		ASSERT_MSG("nid[0x%x] nat_entry->ino[0x%x] footer.ino[0x%x]",
 				nid, ni->ino, le32_to_cpu(node_blk->footer.ino));
 		return -EINVAL;
@@ -605,6 +605,7 @@ void fsck_chk_inode_blk(struct f2fs_sb_info *sbi, u32 nid,
 	struct child_info child = {0, 2, 0, 0, 0, 0};
 	enum NODE_TYPE ntype;
 	u32 i_links = le32_to_cpu(node_blk->i.i_links);
+	u64 i_size = le64_to_cpu(node_blk->i.i_size);
 	u64 i_blocks = le64_to_cpu(node_blk->i.i_blocks);
 	child.p_ino = nid;
 	child.pp_ino = le32_to_cpu(node_blk->i.i_pino);
@@ -736,7 +737,7 @@ void fsck_chk_inode_blk(struct f2fs_sb_info *sbi, u32 nid,
 
 	/* check node blocks in inode */
 	for (idx = 0; idx < 5; idx++) {
-		block_t blkaddr = le32_to_cpu(node_blk->i.i_nid[idx]);
+		nid_t i_nid = le32_to_cpu(node_blk->i.i_nid[idx]);
 
 		if (idx == 0 || idx == 1)
 			ntype = TYPE_DIRECT_NODE;
@@ -747,11 +748,10 @@ void fsck_chk_inode_blk(struct f2fs_sb_info *sbi, u32 nid,
 		else
 			ASSERT(0);
 
-		if (blkaddr == 0x0)
+		if (i_nid == 0x0)
 			goto skip;
 
-		ret = fsck_chk_node_blk(sbi, &node_blk->i,
-				blkaddr,
+		ret = fsck_chk_node_blk(sbi, &node_blk->i, i_nid,
 				NULL, ftype, ntype, blk_cnt, &child);
 		if (!ret) {
 			*blk_cnt = *blk_cnt + 1;
@@ -829,9 +829,21 @@ skip_blkcnt_fix:
 			}
 		}
 	}
+	if (ftype == F2FS_FT_SYMLINK && i_blocks && i_size == 0) {
+		DBG(1, "ino: 0x%x i_blocks: %lu with zero i_size",
+							nid, i_blocks);
+		if (config.fix_on) {
+			u64 i_size = i_blocks * F2FS_BLKSIZE;
+
+			node_blk->i.i_size = cpu_to_le64(i_size);
+			need_fix = 1;
+			FIX_MSG("Symlink: recover 0x%x with i_size=%lu",
+							nid, i_size);
+		}
+	}
 
 	if (ftype == F2FS_FT_ORPHAN && i_links) {
-		ASSERT_MSG("ino: 0x%x is orphan inode, but has i_links: %u",
+		MSG(0, "ino: 0x%x is orphan inode, but has i_links: %u",
 				nid, i_links);
 		if (config.fix_on) {
 			node_blk->i.i_links = 0;
@@ -1432,7 +1444,7 @@ int fsck_chk_data_blk(struct f2fs_sb_info *sbi, u32 blk_addr,
 	}
 
 	if (!IS_VALID_BLK_ADDR(sbi, blk_addr)) {
-		ASSERT_MSG("blkaddres is not valid. [0x%x]", blk_addr);
+		ASSERT_MSG("blkaddress is not valid. [0x%x]", blk_addr);
 		return -EINVAL;
 	}
 
@@ -1515,6 +1527,113 @@ void fsck_chk_orphan_node(struct f2fs_sb_info *sbi)
 	}
 	free(orphan_blk);
 	free(new_blk);
+}
+
+int fsck_chk_meta(struct f2fs_sb_info *sbi)
+{
+	struct f2fs_fsck *fsck = F2FS_FSCK(sbi);
+	struct f2fs_checkpoint *cp = F2FS_CKPT(sbi);
+	struct seg_entry *se;
+	unsigned int sit_valid_segs = 0, sit_node_blks = 0;
+	unsigned int i;
+
+	/* 1. check sit usage with CP: curseg is lost? */
+	for (i = 0; i < TOTAL_SEGS(sbi); i++) {
+		se = get_seg_entry(sbi, i);
+		if (se->valid_blocks != 0)
+			sit_valid_segs++;
+		else if (IS_CUR_SEGNO(sbi, i, NO_CHECK_TYPE)) {
+			/* curseg has not been written back to device */
+			MSG(1, "\tInfo: curseg %u is counted in valid segs\n", i);
+			sit_valid_segs++;
+		}
+		if (IS_NODESEG(se->type))
+			sit_node_blks += se->valid_blocks;
+	}
+	if (fsck->chk.sit_free_segs + sit_valid_segs != TOTAL_SEGS(sbi)) {
+		ASSERT_MSG("SIT usage does not match: sit_free_segs %u, "
+				"sit_valid_segs %u, total_segs %u",
+			fsck->chk.sit_free_segs, sit_valid_segs,
+			TOTAL_SEGS(sbi));
+		return -EINVAL;
+	}
+
+	/* 2. check node count */
+	if (fsck->chk.valid_nat_entry_cnt != sit_node_blks) {
+		ASSERT_MSG("node count does not match: valid_nat_entry_cnt %u,"
+			" sit_node_blks %u",
+			fsck->chk.valid_nat_entry_cnt, sit_node_blks);
+		return -EINVAL;
+	}
+
+	/* 3. check SIT with CP */
+	if (fsck->chk.sit_free_segs != le32_to_cpu(cp->free_segment_count)) {
+		ASSERT_MSG("free segs does not match: sit_free_segs %u, "
+				"free_segment_count %u",
+				fsck->chk.sit_free_segs,
+				le32_to_cpu(cp->free_segment_count));
+		return -EINVAL;
+	}
+
+	/* 4. check NAT with CP */
+	if (fsck->chk.valid_nat_entry_cnt !=
+					le32_to_cpu(cp->valid_node_count)) {
+		ASSERT_MSG("valid node does not match: valid_nat_entry_cnt %u,"
+				" valid_node_count %u",
+				fsck->chk.valid_nat_entry_cnt,
+				le32_to_cpu(cp->valid_node_count));
+		return -EINVAL;
+	}
+
+	if (fsck->nat_valid_inode_cnt != le32_to_cpu(cp->valid_inode_count)) {
+		ASSERT_MSG("valid inode does not match: nat_valid_inode_cnt %u,"
+				" valid_inode_count %u",
+				fsck->nat_valid_inode_cnt,
+				le32_to_cpu(cp->valid_inode_count));
+		return -EINVAL;
+	}
+
+	/*check nat entry with sit_area_bitmap*/
+	for (i = 0; i < fsck->nr_nat_entries; i++) {
+		u32 blk = le32_to_cpu(fsck->entries[i].block_addr);
+		nid_t ino = le32_to_cpu(fsck->entries[i].ino);
+
+		if (!blk)
+			/*
+			 * skip entry whose ino is 0, otherwise, we will
+			 * get a negative number by BLKOFF_FROM_MAIN(sbi, blk)
+			 */
+			continue;
+
+		if (!IS_VALID_BLK_ADDR(sbi, blk)) {
+			MSG(0, "\tError: nat entry[ino %u block_addr 0x%x]"
+				" is in valid\n",
+				ino, blk);
+			return -EINVAL;
+		}
+
+		if (!f2fs_test_sit_bitmap(sbi, blk)) {
+			MSG(0, "\tError: nat entry[ino %u block_addr 0x%x]"
+				" not find it in sit_area_bitmap\n",
+				ino, blk);
+			return -EINVAL;
+		}
+
+		if (!IS_VALID_NID(sbi, ino)) {
+			MSG(0, "\tError: nat_entry->ino %u exceeds the range"
+				" of nat entries %u\n",
+				ino, fsck->nr_nat_entries);
+			return -EINVAL;
+		}
+
+		if (!f2fs_test_bit(ino, fsck->nat_area_bitmap)) {
+			MSG(0, "\tError: nat_entry->ino %u is not set in"
+				" nat_area_bitmap\n", ino);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
 }
 
 void fsck_init(struct f2fs_sb_info *sbi)
@@ -1818,13 +1937,19 @@ int fsck_verify(struct f2fs_sb_info *sbi)
 	}
 
 	/* fix global metadata */
-	if (force || (config.bug_on && config.fix_on && !config.ro)) {
-		fix_hard_links(sbi);
-		fix_nat_entries(sbi);
-		move_curseg_info(sbi, SM_I(sbi)->main_blkaddr);
-		write_curseg_info(sbi);
-		rewrite_sit_area_bitmap(sbi);
-		fix_checkpoint(sbi);
+	if (force || (config.fix_on && !config.ro)) {
+		struct f2fs_checkpoint *cp = F2FS_CKPT(sbi);
+
+		if (force || config.bug_on) {
+			fix_hard_links(sbi);
+			fix_nat_entries(sbi);
+			move_curseg_info(sbi, SM_I(sbi)->main_blkaddr);
+			write_curseg_info(sbi);
+			rewrite_sit_area_bitmap(sbi);
+			fix_checkpoint(sbi);
+		} else if (is_set_ckpt_flags(cp, CP_FSCK_FLAG)) {
+			write_checkpoint(sbi);
+		}
 	}
 	return ret;
 }
@@ -1840,6 +1965,9 @@ void fsck_free(struct f2fs_sb_info *sbi)
 
 	if (fsck->sit_area_bitmap)
 		free(fsck->sit_area_bitmap);
+
+	if (fsck->entries)
+		free(fsck->entries);
 
 	if (tree_mark)
 		free(tree_mark);

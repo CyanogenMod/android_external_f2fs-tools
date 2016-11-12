@@ -54,6 +54,7 @@ AC_PATH_PROG([LDCONFIG], [ldconfig],
 
 # Checks for libraries.
 PKG_CHECK_MODULES([libuuid], [uuid])
+PKG_CHECK_MODULES([libselinux], [libselinux])
 
 # Checks for header files.
 AC_CHECK_HEADERS([linux/fs.h fcntl.h mntent.h stdlib.h string.h \
@@ -92,12 +93,12 @@ AC_CONFIG_FILES([
 
 # export library version info for mkfs/libf2fs_format_la
 AC_SUBST(FMT_CURRENT, 0)
-AC_SUBST(FMT_REVISION, 1)
+AC_SUBST(FMT_REVISION, 2)
 AC_SUBST(FMT_AGE, 0)
 
 # export library version info for lib/libf2fs_la
-AC_SUBST(LIBF2FS_CURRENT, 0)
-AC_SUBST(LIBF2FS_REVISION, 1)
+AC_SUBST(LIBF2FS_CURRENT, 1)
+AC_SUBST(LIBF2FS_REVISION, 0)
 AC_SUBST(LIBF2FS_AGE, 0)
 
 AC_OUTPUT

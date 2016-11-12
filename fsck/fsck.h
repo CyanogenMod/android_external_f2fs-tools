@@ -15,6 +15,12 @@
 
 #define FSCK_UNMATCHED_EXTENT		0x00000001
 
+enum {
+	PREEN_MODE_0,
+	PREEN_MODE_1,
+	PREEN_MODE_MAX
+};
+
 /* fsck.c */
 struct orphan_info {
 	u32 nr_inodes;
@@ -70,6 +76,8 @@ struct f2fs_fsck {
 	u32 nr_nat_entries;
 
 	u32 dentry_depth;
+	struct f2fs_nat_entry *entries;
+	u32 nat_valid_inode_cnt;
 };
 
 #define BLOCK_SZ		4096
@@ -100,6 +108,8 @@ enum seg_type {
 	SEG_TYPE_MAX,
 };
 
+struct selabel_handle;
+
 extern void fsck_chk_orphan_node(struct f2fs_sb_info *);
 extern int fsck_chk_node_blk(struct f2fs_sb_info *, struct f2fs_inode *, u32,
 		u8 *, enum FILE_TYPE, enum NODE_TYPE, u32 *,
@@ -119,7 +129,9 @@ extern int fsck_chk_dentry_blk(struct f2fs_sb_info *, u32, struct child_info *,
 		int, int);
 int fsck_chk_inline_dentries(struct f2fs_sb_info *, struct f2fs_node *,
 		struct child_info *);
+int fsck_chk_meta(struct f2fs_sb_info *sbi);
 
+extern void update_free_segments(struct f2fs_sb_info *);
 void print_cp_state(u32);
 extern void print_node_info(struct f2fs_node *);
 extern void print_inode_info(struct f2fs_inode *, int);
@@ -148,13 +160,15 @@ extern void write_curseg_info(struct f2fs_sb_info *);
 extern int find_next_free_block(struct f2fs_sb_info *, u64 *, int, int);
 extern void write_checkpoint(struct f2fs_sb_info *);
 extern void update_data_blkaddr(struct f2fs_sb_info *, nid_t, u16, block_t);
-extern void update_nat_blkaddr(struct f2fs_sb_info *, nid_t, block_t);
+extern void update_nat_blkaddr(struct f2fs_sb_info *, nid_t, nid_t, block_t);
 
 extern void print_raw_sb_info(struct f2fs_super_block *);
 
 /* dump.c */
 struct dump_option {
 	nid_t nid;
+	int start_nat;
+	int end_nat;
 	int start_sit;
 	int end_sit;
 	int start_ssa;
@@ -162,6 +176,7 @@ struct dump_option {
 	int32_t blk_addr;
 };
 
+extern void nat_dump(struct f2fs_sb_info *, int, int);
 extern void sit_dump(struct f2fs_sb_info *, int, int);
 extern void ssa_dump(struct f2fs_sb_info *, int, int);
 extern void dump_node(struct f2fs_sb_info *, nid_t);
@@ -169,5 +184,28 @@ extern int dump_info_from_blkaddr(struct f2fs_sb_info *, u32);
 
 /* defrag.c */
 int f2fs_defragment(struct f2fs_sb_info *, u64, u64, u64, int);
+
+/* resize.c */
+int f2fs_resize(struct f2fs_sb_info *);
+
+/* sload.c */
+int f2fs_sload(struct f2fs_sb_info *, const char *, const char *,
+		const char *, struct selabel_handle *);
+void reserve_new_block(struct f2fs_sb_info *, block_t *,
+					struct f2fs_summary *, int);
+void new_data_block(struct f2fs_sb_info *, void *,
+					struct dnode_of_data *, int);
+int f2fs_build_file(struct f2fs_sb_info *, struct dentry *);
+void f2fs_alloc_nid(struct f2fs_sb_info *, nid_t *, int);
+void set_data_blkaddr(struct dnode_of_data *);
+block_t new_node_block(struct f2fs_sb_info *,
+					struct dnode_of_data *, unsigned int);
+void get_dnode_of_data(struct f2fs_sb_info *, struct dnode_of_data *,
+					pgoff_t, int);
+int f2fs_create(struct f2fs_sb_info *, struct dentry *);
+int f2fs_mkdir(struct f2fs_sb_info *, struct dentry *);
+int f2fs_symlink(struct f2fs_sb_info *, struct dentry *);
+int inode_set_selinux(struct f2fs_sb_info *, u32, const char *);
+int f2fs_find_path(struct f2fs_sb_info *, char *, nid_t *);
 
 #endif /* _FSCK_H_ */
