@@ -4,13 +4,13 @@ LOCAL_PATH:= $(call my-dir)
 ifneq (,$(filter linux darwin,$(HOST_OS)))
 
 # The versions depend on $(LOCAL_PATH)/VERSION
-version_CFLAGS := -DF2FS_MAJOR_VERSION=1 -DF2FS_MINOR_VERSION=6 -DF2FS_TOOLS_VERSION=\"1.6.1\" -DF2FS_TOOLS_DATE=\"2016-03-22\"
+version_CFLAGS := -DF2FS_MAJOR_VERSION=1 -DF2FS_MINOR_VERSION=7 -DF2FS_TOOLS_VERSION=\"1.7.0\" -DF2FS_TOOLS_DATE=\"2016-07-28\"
 
 # external/e2fsprogs/lib is needed for uuid/uuid.h
 common_C_INCLUDES := $(LOCAL_PATH)/include external/e2fsprogs/lib/ $(LOCAL_PATH)/mkfs
 
 #----------------------------------------------------------
-libf2fs_src_files := lib/libf2fs.c lib/libf2fs_io.c
+libf2fs_src_files := lib/libf2fs.c lib/libf2fs_io.c lib/zbc.c
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libf2fs
@@ -53,18 +53,24 @@ include $(BUILD_STATIC_LIBRARY)
 
 #----------------------------------------------------------
 fsck_f2fs_src_files := \
+	fsck/defrag.c \
+	fsck/dir.c \
 	fsck/dump.c \
 	fsck/fsck.c \
 	fsck/main.c \
 	fsck/mount.c \
-	fsck/defrag.c
+	fsck/node.c \
+	fsck/resize.c \
+	fsck/segment.c \
+	fsck/sload.c \
+	fsck/xattr.c
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := fsck.f2fs
 LOCAL_SRC_FILES := $(fsck_f2fs_src_files)
 LOCAL_C_INCLUDES := $(common_C_INCLUDES)
 LOCAL_CFLAGS := $(version_CFLAGS)
-LOCAL_SHARED_LIBRARIES := libf2fs
+LOCAL_SHARED_LIBRARIES := libf2fs libselinux
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_EXECUTABLE)
 
@@ -73,6 +79,7 @@ LOCAL_MODULE := libf2fs_fsck_static
 LOCAL_SRC_FILES := $(fsck_f2fs_src_files)
 LOCAL_C_INCLUDES := $(common_C_INCLUDES)
 LOCAL_CFLAGS := $(version_CFLAGS) -Dmain=fsck_f2fs_main
+LOCAL_STATIC_LIBRARIES := libselinux
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_STATIC_LIBRARY)
 
