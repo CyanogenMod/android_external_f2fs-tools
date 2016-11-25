@@ -10,7 +10,7 @@ version_CFLAGS := -DF2FS_MAJOR_VERSION=1 -DF2FS_MINOR_VERSION=7 -DF2FS_TOOLS_VER
 common_C_INCLUDES := $(LOCAL_PATH)/include external/e2fsprogs/lib/ $(LOCAL_PATH)/mkfs
 
 #----------------------------------------------------------
-libf2fs_src_files := lib/libf2fs.c lib/libf2fs_io.c lib/zbc.c
+libf2fs_src_files := lib/libf2fs.c lib/libf2fs_io.c
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libf2fs
