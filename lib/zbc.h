@@ -23,11 +23,18 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#ifdef __linux__
 #include <linux/types.h>
+#endif
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#ifdef __linux__
 #include <scsi/scsi.h>
 #include <scsi/sg.h>
+#else
+#include "scsi/scsi.h"
+#include "scsi/sg.h"
+#endif
 
 #define zbc_error(format, args...)			\
 	fprintf(stderr, "[ERROR] " format, ##args)
